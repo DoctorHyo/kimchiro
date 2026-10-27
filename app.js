@@ -35,8 +35,39 @@ function details(storeId) { const s = state.stores.find(x => x.id === storeId); 
 $('#reportForm').addEventListener('submit', async e => { e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); const button=e.target.querySelector('button[type=submit], .submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.from('reports').insert({data}); if(error) throw error; e.target.reset(); $('#reportDialog').close(); toast('제보를 보냈어요. 확인 후 지도에 반영됩니다.'); } catch(_) {toast('제보를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');} finally {button.disabled=false;} });
 function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value) form.elements.verifiedAt.value = today(); open('#editDialog'); }
 $('#manualAdd').addEventListener('click', () => edit());
+// Kakao's address finder works inside the form, including in mobile webviews.
+for (const form of [$('#reportForm'), $('#editForm')]) {
+  const input = form.elements.namedItem('address');
+  const picker = $('.address-picker', form);
+  const frame = $('.postcode-frame', picker);
+  const search = $('.address-search', form);
+  const closePicker = () => { picker.hidden = true; frame.replaceChildren(); search.setAttribute('aria-expanded', 'false'); };
+  search.setAttribute('aria-expanded', 'false');
+  $('.address-close', picker).addEventListener('click', closePicker);
+  search.addEventListener('click', () => {
+    if (!picker.hidden) { closePicker(); return; }
+    if (!window.kakao?.Postcode) { toast('주소 검색을 불러오지 못했어요. 직접 입력해 주세요.'); input.focus(); return; }
+    picker.hidden = false;
+    search.setAttribute('aria-expanded', 'true');
+    try {
+      new window.kakao.Postcode({ width: '100%', height: '100%', maxSuggestItems: 5, oncomplete(data) {
+        const address = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
+        input.value = address || data.address || '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        closePicker();
+        input.focus();
+        if (form.id === 'editForm' && input.value) $('#geocode').click();
+      }}).embed(frame, {q: input.value.trim()});
+    } catch (_) { closePicker(); toast('주소 검색을 열지 못했어요. 직접 입력해 주세요.'); }
+  });
+  form.closest('dialog').addEventListener('close', closePicker);
+}
+$('#editForm [name=address]').addEventListener('input', () => {
+  $('#editForm [name=lat]').value = '';
+  $('#editForm [name=lng]').value = '';
+});
 $('#editForm').addEventListener('submit', async e => { e.preventDefault(); if (!db || !isAdmin) return toast('운영자 로그인이 필요해요.'); const d=Object.fromEntries(new FormData(e.target)); if ((d.lat || d.lng) && !validCoords(d)) return toast('대한민국 범위의 위도와 경도를 모두 확인해 주세요.'); const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const entry={...d,lat:d.lat.trim(),lng:d.lng.trim()}; delete entry.id; delete entry.pendingId; let error; if(d.pendingId) ({error}=await db.rpc('approve_report',{report_id:d.pendingId,store_data:entry})); else if(d.id) ({error}=await db.from('stores').update({data:entry}).eq('id',d.id)); else ({error}=await db.from('stores').insert({data:entry})); if(error) throw error; await loadData(); $('#editDialog').close(); if($('#manageDialog').open) $('#manageDialog').close(); toast('확인한 가게가 등록되었어요.'); } catch(_) {toast('등록하지 못했어요. 로그인과 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
-$('#geocode').addEventListener('click', async e => { const address = $('#editForm [name=address]').value.trim(); if (!address) return toast('먼저 가게 주소를 입력해 주세요.'); e.target.disabled = true; e.target.textContent = '위치를 찾고 있어요…'; try { const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(address)}`); if (!response.ok) throw Error(); const [result] = await response.json(); if (!result) { toast('위치를 찾지 못했어요. 좌표를 직접 입력해 주세요.'); return; } $('#editForm [name=lat]').value = result.lat; $('#editForm [name=lng]').value = result.lon; toast('좌표를 찾았어요. 실제 위치와 일치하는지 확인해 주세요.'); } catch (_) { toast('위치 검색을 사용할 수 없어요. 좌표를 직접 입력해 주세요.'); } finally { e.target.disabled = false; e.target.textContent = '주소로 위치 찾기 ◎'; } });
+$('#geocode').addEventListener('click', async e => { const address = $('#editForm [name=address]').value.trim(); if (!address) return toast('먼저 가게 주소를 입력해 주세요.'); e.target.disabled = true; e.target.textContent = '위치를 찾고 있어요…'; try { const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(address)}`); if (!response.ok) throw Error(); const [result] = await response.json(); if (address !== $('#editForm [name=address]').value.trim()) return; if (!result) { toast('위치를 찾지 못했어요. 좌표를 직접 입력해 주세요.'); return; } $('#editForm [name=lat]').value = result.lat; $('#editForm [name=lng]').value = result.lon; toast('좌표를 찾았어요. 실제 위치와 일치하는지 확인해 주세요.'); } catch (_) { toast('위치 검색을 사용할 수 없어요. 좌표를 직접 입력해 주세요.'); } finally { e.target.disabled = false; e.target.textContent = '주소로 위치 찾기 ◎'; } });
 function renderAdmin() { $('#pendingCount').textContent = state.pending.length || ''; $('#pendingList').innerHTML = state.pending.length ? [...state.pending].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)}<br>${esc(s.evidence)} · ${esc(s.verifiedAt)}<br>${esc(s.note)}</small></div><button data-review="${esc(s.id)}">검토·등록</button><button class="delete" data-reject="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 제보가 없어요.</div>'; $('#savedList').innerHTML = state.stores.length ? [...state.stores].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)} · ${esc(s.verifiedAt)} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>'; renderCandidates(); }
 $('#pendingList').addEventListener('click', async e => { const review=e.target.dataset.review, reject=e.target.dataset.reject; if(review) {const s=state.pending.find(x=>x.id===review); if(s) edit({...s,id:'',pendingId:s.id});} if(reject && confirm('이 제보를 삭제할까요?')) {const {error}=await db.from('reports').delete().eq('id',reject); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
 $('#savedList').addEventListener('click', async e => { const editId=e.target.dataset.edit, deleteId=e.target.dataset.delete; if(editId) {const s=state.stores.find(x=>x.id===editId); if(s) edit(s);} if(deleteId && confirm('이 가게를 삭제할까요?')) {const {error}=await db.from('stores').delete().eq('id',deleteId); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
