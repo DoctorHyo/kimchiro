@@ -63,7 +63,7 @@ async function loadData() {
     render();
   } catch (_) { $('#connectionBanner').hidden=false; $('#connectionBanner').textContent='가게 정보를 불러오지 못했어요. 연결 상태를 확인해 주세요.'; }
 }
-$('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if(!db) return; const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.auth.signInWithPassword(data); if(error) throw error; await loadData(); if(!isAdmin) { await db.auth.signOut(); throw Error(); } e.target.reset(); $('#loginDialog').close(); renderAdmin(); open('#manageDialog'); } catch(_) {toast('운영자 계정과 비밀번호를 확인해 주세요.');} finally {button.disabled=false;} });
+$('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if(!db) return; const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.auth.signInWithPassword(data); if(error) { toast('이메일과 비밀번호를 확인해 주세요.'); return; } await loadData(); if(!isAdmin) { await db.auth.signOut(); toast('로그인했지만 운영자 권한이 연결되지 않았어요.'); return; } e.target.reset(); $('#loginDialog').close(); renderAdmin(); open('#manageDialog'); } catch(_) {toast('로그인하지 못했어요. 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
 $('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
 loadData();
 
