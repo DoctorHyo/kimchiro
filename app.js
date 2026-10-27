@@ -32,7 +32,7 @@ function render() {
 $('#storeList').addEventListener('click', e => { const card = e.target.closest('[data-store]'); if (card) details(card.dataset.store); });
 $('#storeList').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const card = e.target.closest('[data-store]'); if (card) { e.preventDefault(); details(card.dataset.store); } } });
 function details(storeId) { const s = state.stores.find(x => x.id === storeId); if (!s) return; $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close>×</button></div><span class="pill">국산 김치 확인</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a>`; $('[data-detail-close]').onclick = () => $('#detailDialog').close(); open('#detailDialog'); }
-$('#reportForm').addEventListener('submit', async e => { e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); const button=e.target.querySelector('button[type=submit], .submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.from('reports').insert({data}); if(error) throw error; e.target.reset(); $('#reportDialog').close(); toast('제보를 보냈어요. 확인 후 지도에 반영됩니다.'); } catch(_) {toast('제보를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');} finally {button.disabled=false;} });
+$('#reportForm').addEventListener('submit', async e => { e.preventDefault(); if (!e.target.elements.namedItem('address').value.trim()) { toast('주소 찾기에서 가게 주소를 선택해 주세요.'); $('.address-search', e.target).focus(); return; } if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); const button=e.target.querySelector('button[type=submit], .submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.from('reports').insert({data}); if(error) throw error; e.target.reset(); $('#reportDialog').close(); toast('제보를 보냈어요. 확인 후 지도에 반영됩니다.'); } catch(_) {toast('제보를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');} finally {button.disabled=false;} });
 function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value) form.elements.verifiedAt.value = today(); open('#editDialog'); }
 $('#manualAdd').addEventListener('click', () => edit());
 // Kakao's address finder works inside the form, including in mobile webviews.
@@ -43,10 +43,14 @@ for (const form of [$('#reportForm'), $('#editForm')]) {
   const search = $('.address-search', form);
   const closePicker = () => { picker.hidden = true; frame.replaceChildren(); search.setAttribute('aria-expanded', 'false'); };
   search.setAttribute('aria-expanded', 'false');
+  if (form.id === 'reportForm') {
+    input.addEventListener('click', () => { if (picker.hidden) search.click(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (picker.hidden) search.click(); } });
+  }
   $('.address-close', picker).addEventListener('click', closePicker);
   search.addEventListener('click', () => {
     if (!picker.hidden) { closePicker(); return; }
-    if (!window.kakao?.Postcode) { toast('주소 검색을 불러오지 못했어요. 직접 입력해 주세요.'); input.focus(); return; }
+    if (!window.kakao?.Postcode) { toast(form.id === 'reportForm' ? '주소 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' : '주소 검색을 불러오지 못했어요. 직접 입력해 주세요.'); input.focus(); return; }
     picker.hidden = false;
     search.setAttribute('aria-expanded', 'true');
     try {
