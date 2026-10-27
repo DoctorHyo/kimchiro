@@ -10,7 +10,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="김치로 홈"><span class="brand-icon">✳</span><span>김치로<small>KIMCHIRO</small></span></a>
+    <a class="brand" href="#" aria-label="김치로 홈"><img class="brand-wordmark" src="assets/kimchiro-logo.webp" alt="김치로"></a>
     <nav><button class="nav-link active" data-view="explore">지도 둘러보기</button><button class="nav-link" data-view="about">김치로 소개</button></nav>
     <div class="top-actions"><span class="beta">BETA</span><button class="text-button" id="manageBtn">운영자 메뉴</button><button class="dark-button" id="reportBtn"><span>＋</span> 가게 제보하기</button></div>
   </header>
@@ -23,7 +23,7 @@
     </section>
 
     <section class="explorer" id="mapSection">
-      <div class="section-heading"><div><div class="eyebrow muted">DISCOVER YOUR KIMCHI SPOT <span>✳</span></div><h2>우리 동네 김치 지도<span>.</span></h2><p>국산 김치를 만날 수 있는 곳, 함께 찾아볼까요?</p></div><div class="heading-note"><span>✳</span> 한 곳 한 곳, 정성껏 모으고 있어요</div></div>
+      <div class="section-heading"><div><div class="eyebrow muted">DISCOVER YOUR KIMCHI SPOT <span>✳</span></div><h2 class="map-title"><img src="assets/map-heading.webp" alt="우리 동네 김치 지도."></h2><p>국산 김치를 만날 수 있는 곳, 함께 찾아볼까요?</p></div><div class="heading-note"><span>✳</span> 한 곳 한 곳, 정성껏 모으고 있어요</div></div>
       <div class="workspace">
         <aside class="sidebar"><div class="search-wrap"><span>⌕</span><input id="search" placeholder="지역 또는 가게 이름 검색" aria-label="지역 또는 가게 이름 검색"><kbd>⌘ K</kbd></div>
           <div class="filter-label">어떤 곳을 찾으세요? <span>FILTER</span></div><div class="filters" id="filters"><button class="filter selected" data-category="전체">전체</button><button class="filter" data-category="한식">한식</button><button class="filter" data-category="국밥">국밥</button><button class="filter" data-category="고기">고기</button><button class="filter" data-category="기타">기타</button></div>
@@ -37,7 +37,7 @@
     <section class="closing"><span>✳</span><div><small>TOGETHER, WE MAKE THE MAP</small><h2>한 포기의 진심이 모여,<br>하나의 지도가 됩니다.</h2><p>국산 김치를 사랑하는 마음으로, 김치로를 함께 채워주세요.</p></div><button id="closingReport">가게 제보하기 <span>↗</span></button></section>
   </main>
   <main id="aboutView" hidden><section class="about"><div class="eyebrow">ABOUT KIMCHIRO <span>✳</span></div><h1>김치로 통하는<br><em>한국지도.</em></h1><p>좋아하는 식당의 김치가 어디에서 왔는지 궁금했던 적 있나요?<br>김치로는 국산 김치를 만날 수 있는 가게를 함께 발견하고 기록하는 지도입니다.</p><div class="about-grid"><article><b>01</b><h3>가까운 곳에서 발견해요</h3><p>동네와 가게 이름으로 국산 김치를 만날 수 있는 곳을 찾아보세요.</p></article><article><b>02</b><h3>직접 확인하고 기록해요</h3><p>가게 정보와 김치 원산지의 확인 방법, 확인일을 함께 기록합니다.</p></article><article><b>03</b><h3>함께 지도를 채워요</h3><p>여러분이 알고 있는 소중한 가게를 제보해 주세요.</p></article></div><button class="dark-button" data-view="explore">지도로 돌아가기 ↗</button></section></main>
-  <footer><a class="brand footer-brand" href="#"><span class="brand-icon">✳</span><span>김치로<small>KIMCHIRO</small></span></a><p>김치로 통하는 한국지도<br><small>한 곳 한 곳, 우리 김치 이야기를 이어갑니다.</small></p><span>© KIMCHIRO</span></footer>
+  <footer><a class="brand footer-brand" href="#"><img class="brand-wordmark" src="assets/kimchiro-logo.webp" alt="김치로"></a><p>김치로 통하는 한국지도<br><small>한 곳 한 곳, 우리 김치 이야기를 이어갑니다.</small></p><span>© KIMCHIRO</span></footer>
 
   <dialog id="reportDialog"><form id="reportForm"><div class="modal-head"><div><span class="eyebrow">SHARE YOUR SPOT</span><h2>가게 제보하기<span>.</span></h2><p>알고 있는 국산 김치 가게를 알려주세요.</p></div><button type="button" class="close" data-close>×</button></div><div class="notice">✳ &nbsp; 제보는 확인을 거친 후 지도에 표시됩니다.</div><label>가게 이름 <b>*</b><input name="name" required placeholder="예: 김치식당"></label><label>가게 주소 <b>*</b><div class="address-row"><input name="address" required readonly aria-describedby="reportAddressHelp" placeholder="주소 찾기를 눌러 선택해 주세요"><button type="button" class="address-search">주소 찾기</button></div></label><div class="address-picker" hidden><div class="address-picker-head"><strong>주소 검색</strong><button type="button" class="address-close" aria-label="주소 검색 닫기">×</button></div><div class="postcode-frame"></div></div><p class="form-help" id="reportAddressHelp">주소 찾기에서 도로명·지번·건물명을 검색해 선택해 주세요.</p><div class="form-row"><label>업종<select name="category"><option>한식</option><option>국밥</option><option>고기</option><option>기타</option></select></label><label>확인한 날짜 <b>*</b><input type="date" name="verifiedAt" required></label></div><label>국산 김치 확인 방법 <b>*</b><select name="evidence" required><option value="">선택해 주세요</option><option>원산지 표시판 확인</option><option>가게에 직접 확인</option><option>공식 메뉴·안내 확인</option><option>기타</option></select></label><label>확인 내용 또는 참고 링크 <b>*</b><textarea name="note" required placeholder="예: 원산지 표시판에서 배추김치 국내산 확인"></textarea></label><p class="form-help">국산 김치 여부를 확인할 수 있는 정보를 적어주세요. 개인정보는 입력하지 마세요.</p><button class="submit-button">제보 보내기 <span>↗</span></button></form></dialog>
 

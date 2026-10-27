@@ -9,6 +9,8 @@ if (!anonKey.startsWith('sb_publishable_')) {
   if (role !== 'anon') throw new Error('Only a legacy anon key may be exposed in browser code.');
 }
 await mkdir('dist', {recursive:true});
+await mkdir('dist/assets', {recursive:true});
 for (const file of ['index.html','style.css','app.js']) await copyFile(file, `dist/${file}`);
+for (const file of ['kimchiro-logo.webp','map-heading.webp']) await copyFile(`assets/${file}`, `dist/assets/${file}`);
 await writeFile('dist/config.js', `window.KIMCHIRO_CONFIG = ${JSON.stringify({url,anonKey})};\n`);
 
