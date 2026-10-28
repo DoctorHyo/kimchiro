@@ -18,7 +18,8 @@ $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d)
 function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === view)); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
 $$('[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 $$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
-$('#manageBtn').addEventListener('click', () => { if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); if (!isAdmin) return open('#loginDialog'); renderAdmin(); open('#manageDialog'); });
+function openAdmin() { if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); if (!isAdmin) return open('#loginDialog'); renderAdmin(); open('#manageDialog'); }
+window.addEventListener('hashchange', () => { if (location.hash === '#admin') openAdmin(); });
 $$('.tab').forEach(b => b.addEventListener('click', () => { $$('.tab').forEach(x => x.classList.toggle('active', x === b)); $$('.tab-panel').forEach(x => x.hidden = x.id !== `${b.dataset.tab}Panel`); renderAdmin(); }));
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); showView('explore'); $('#search').focus(); } });
 $('#filters').addEventListener('click', e => { const b = e.target.closest('[data-category]'); if (!b) return; category = b.dataset.category; $$('.filter').forEach(x => x.classList.toggle('selected', x === b)); render(); });
@@ -164,5 +165,5 @@ async function loadData() {
 }
 $('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if(!db) return; const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.auth.signInWithPassword(data); if(error) { toast('이메일과 비밀번호를 확인해 주세요.'); return; } await loadData(); if(!isAdmin) { await db.auth.signOut(); toast('로그인했지만 운영자 권한이 연결되지 않았어요.'); return; } e.target.reset(); $('#loginDialog').close(); renderAdmin(); open('#manageDialog'); } catch(_) {toast('로그인하지 못했어요. 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
 $('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; selectedReports.clear(); reviewQueue=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
-loadData();
+loadData().then(() => { if (location.hash === '#admin') openAdmin(); });
 
