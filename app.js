@@ -15,7 +15,29 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const open = selector => { const dialog = $(selector); if (!dialog.open) dialog.showModal(); };
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
-function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === view)); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
+function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $('#labView').hidden = view !== 'lab'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === view)); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
+const worldcupKimchi = [
+  ['배추김치','밥상 위의 든든한 기본'], ['백김치','깔끔하고 시원한 맛'], ['깍두기','아삭하게 씹는 무김치'], ['총각김치','아삭한 알타리의 매력'],
+  ['열무김치','여름에 생각나는 산뜻함'], ['열무물김치','시원한 국물 한입'], ['동치미','청량한 무와 국물'], ['나박김치','가볍고 시원한 물김치'],
+  ['오이소박이','오이에 속을 꽉 채워'], ['파김치','알싸하고 진한 풍미'], ['갓김치','톡 쏘는 향과 맛'], ['부추김치','향긋하게 즐기는 한입'],
+  ['겉절이','갓 버무려 생생하게'], ['묵은지','시간이 만든 깊은 맛'], ['보쌈김치','수육과 함께 떠오르는 맛'], ['석박지','큼직하고 시원한 무'],
+  ['얼갈이김치','부드러운 배추의 매력'], ['봄동겉절이','봄동의 고소한 아삭함'], ['고들빼기김치','쌉싸름한 감칠맛'], ['깻잎김치','향긋한 깻잎의 변신'],
+  ['고구마줄기김치','오독오독한 줄기 식감'], ['가지김치','부드러운 가지에 양념'], ['고추소박이','아삭하고 칼칼하게'], ['양배추김치','아삭하고 달큰하게'],
+  ['대파김치','큼직한 대파의 풍미'], ['무청김치','무청의 구수한 맛'], ['순무김치','단단하고 알싸한 순무'], ['동치미무김치','시원하게 익힌 무'],
+  ['돌나물물김치','상큼하고 산뜻한 국물'], ['미나리김치','미나리 향이 가득'], ['수박김치','달콤하고 아삭한 여름 별미'], ['콩나물김치','아삭한 콩나물의 색다른 맛']
+];
+let worldcupRound=[], worldcupWinners=[], worldcupIndex=0;
+const cup=$('#worldcup');
+function cupIntro() { cup.innerHTML=`<div class="cup-intro"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">김치로 실험실 첫 번째 게임</span><h2>김치 이상형 월드컵</h2><p>32가지 김치 중<br>당신의 최애를 골라주세요!</p><button type="button" class="cup-primary" id="cupStart">32강 시작하기 <span aria-hidden="true">↗</span></button></div>`; }
+function cupStart() { worldcupRound=[...worldcupKimchi]; for(let i=worldcupRound.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [worldcupRound[i],worldcupRound[j]]=[worldcupRound[j],worldcupRound[i]]; } worldcupWinners=[];worldcupIndex=0;cupRender(); }
+function cupRender() {
+  if (worldcupRound.length===1) { const winner=worldcupRound[0]; cup.innerHTML=`<div class="cup-intro cup-result"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">당신의 최애 김치</span><h2>${esc(winner[0])}</h2><p>${esc(winner[1])}<br>32가지 후보 중 당신의 선택을 받았어요!</p><button type="button" class="cup-primary" id="cupRestart">다시 하기 ↻</button></div>`; return; }
+  const count=worldcupRound.length, match=worldcupIndex/2+1, total=count/2, label=count===2?'결승':`${count}강`;
+  const choices=worldcupRound.slice(worldcupIndex,worldcupIndex+2);
+  cup.innerHTML=`<div class="cup-status"><div><span class="cup-badge">${label}</span><strong>${match} / ${total}</strong></div><span>마음에 드는 쪽을 골라주세요</span></div><div class="cup-progress" role="progressbar" aria-label="현재 라운드 진행" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${match-1}"><span style="width:${(match-1)/total*100}%"></span></div><div class="cup-versus">${choices.map((item,i)=>`<button type="button" class="cup-choice" data-cup-choice="${i}" aria-label="${esc(item[0])} 선택"><span class="cup-choice-icon" aria-hidden="true">${i===0?'🥬':'🥢'}</span><strong>${esc(item[0])}</strong><small>${esc(item[1])}</small><span class="cup-select">이 김치 선택하기 ↗</span></button>`).join('<span class="cup-vs" aria-hidden="true">VS</span>')}</div><button type="button" class="cup-reset" id="cupRestart">처음부터 다시 하기</button>`;
+}
+cup.addEventListener('click', e=>{ const choice=e.target.closest('[data-cup-choice]'); if(choice) { worldcupWinners.push(worldcupRound[worldcupIndex+Number(choice.dataset.cupChoice)]);worldcupIndex+=2;if(worldcupIndex===worldcupRound.length){worldcupRound=worldcupWinners;worldcupWinners=[];worldcupIndex=0;}cupRender();return; } if(e.target.closest('#cupStart')) cupStart(); if(e.target.closest('#cupRestart')) { if(worldcupRound.length>1 && !confirm('진행 중인 월드컵을 처음부터 다시 시작할까요?')) return; cupStart(); } });
+cupIntro();
 $$('[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 $$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
 $$('.feedback-open').forEach(button => button.addEventListener('click', () => { $('#feedbackForm').reset(); open('#feedbackDialog'); }));
