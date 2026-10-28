@@ -15,7 +15,7 @@ const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(
 const open = selector => { const dialog = $(selector); if (!dialog.open) dialog.showModal(); };
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
-function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $('#labView').hidden = view !== 'lab'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === view)); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
+function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $('#labView').hidden = view !== 'lab'; $('#gameView').hidden = view !== 'game'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === (view === 'game' ? 'lab' : view))); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
 const worldcupKimchi = [
   ['배추김치','밥상 위의 든든한 기본'], ['백김치','깔끔하고 시원한 맛'], ['깍두기','아삭하게 씹는 무김치'], ['총각김치','아삭한 알타리의 매력'],
   ['열무김치','여름에 생각나는 산뜻함'], ['열무물김치','시원한 국물 한입'], ['동치미','청량한 무와 국물'], ['나박김치','가볍고 시원한 물김치'],
@@ -44,7 +44,7 @@ async function saveCupResult(gameId,winner) {
   finally { worldcupSaving.delete(gameId); }
 }
 $('#refreshRankings').addEventListener('click',loadCupRankings);
-$('[data-view="lab"]').addEventListener('click',loadCupRankings);
+
 function cupIntro() { cup.innerHTML=`<div class="cup-intro"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">김치로 실험실 첫 번째 게임</span><h2>김치 이상형 월드컵</h2><p>32가지 김치 중<br>당신의 최애를 골라주세요!</p><button type="button" class="cup-primary" id="cupStart">32강 시작하기 <span aria-hidden="true">↗</span></button></div>`; }
 function cupStart() { worldcupGameId=cupGameId(); worldcupRound=[...worldcupKimchi]; for(let i=worldcupRound.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [worldcupRound[i],worldcupRound[j]]=[worldcupRound[j],worldcupRound[i]]; } worldcupWinners=[];worldcupIndex=0;cupRender(); }
 function cupRender() {
@@ -55,8 +55,8 @@ function cupRender() {
 }
 cup.addEventListener('click', e=>{ const choice=e.target.closest('[data-cup-choice]'); if(choice) { worldcupWinners.push(worldcupRound[worldcupIndex+Number(choice.dataset.cupChoice)]);worldcupIndex+=2;if(worldcupIndex===worldcupRound.length){worldcupRound=worldcupWinners;worldcupWinners=[];worldcupIndex=0;}cupRender();return; } if(e.target.closest('#cupRetry') && worldcupRound.length===1) { saveCupResult(worldcupGameId,worldcupRound[0][0]); return; } if(e.target.closest('#cupStart')) cupStart(); if(e.target.closest('#cupRestart')) { if(worldcupRound.length>1 && !confirm('진행 중인 월드컵을 처음부터 다시 시작할까요?')) return; cupStart(); } });
 cupIntro();
-$$('[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
-$$('a.brand').forEach(link => link.addEventListener('click', e => { e.preventDefault(); history.replaceState(null, '', location.pathname + location.search); showView('explore'); }));
+$$('[data-view]').forEach(b => b.addEventListener('click', () => { const view=b.dataset.view; if(location.pathname === '/worldcup.html') { location.href=view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'; return; } history.pushState(null, '', view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'); showView(view); }));
+$$('a.brand').forEach(link => link.addEventListener('click', e => { e.preventDefault(); if(location.pathname === '/worldcup.html') { location.href='/'; return; } history.pushState(null, '', '/'); showView('explore'); }));
 $$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
 $$('.feedback-open').forEach(button => button.addEventListener('click', () => { $('#feedbackForm').reset(); open('#feedbackDialog'); }));
 $('#feedbackForm').addEventListener('submit', async e => {
@@ -68,7 +68,11 @@ $('#feedbackForm').addEventListener('submit', async e => {
   catch (_) { toast('의견을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'); } finally { button.disabled=false; }
 });
 function openAdmin() { if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); if (!isAdmin) return open('#loginDialog'); renderAdmin(); open('#manageDialog'); }
-window.addEventListener('hashchange', () => { if (location.hash === '#admin') openAdmin(); });
+function routeView() { if(location.hash === '#admin') return; if(location.pathname === '/worldcup.html') { showView('game'); loadCupRankings(); return; } showView(location.hash === '#lab' ? 'lab' : location.hash === '#about' ? 'about' : 'explore'); }
+window.addEventListener('hashchange', () => { if(location.hash === '#admin') openAdmin(); else routeView(); });
+window.addEventListener('popstate', routeView);
+$('#shareGame').addEventListener('click', async () => { const url=new URL('/worldcup.html',location.origin).href; try { await navigator.clipboard.writeText(url); $('#shareGameStatus').textContent='게임 주소를 복사했어요!'; } catch (_) { $('#shareGameStatus').textContent=`주소를 복사해 공유해 주세요: ${url}`; } });
+routeView();
 $$('.tab').forEach(b => b.addEventListener('click', () => { $$('.tab').forEach(x => x.classList.toggle('active', x === b)); $$('.tab-panel').forEach(x => x.hidden = x.id !== `${b.dataset.tab}Panel`); renderAdmin(); }));
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); showView('explore'); $('#search').focus(); } });
 $('#filters').addEventListener('click', e => { const b = e.target.closest('[data-category]'); if (!b) return; category = b.dataset.category; $$('.filter').forEach(x => x.classList.toggle('selected', x === b)); render(); });

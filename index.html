@@ -53,7 +53,13 @@
   <main id="aboutView" hidden><section class="about"><div class="eyebrow">ABOUT KIMCHIRO <span><img class="kimchi-icon" src="assets/kimchi-icon.webp" alt="" aria-hidden="true"></span></div><h1>김치로 통하는<br><em>한국지도.</em></h1><p>좋아하는 식당의 김치가 어디에서 왔는지 궁금했던 적 있나요?<br>김치로는 국산 김치를 만날 수 있는 가게를 함께 발견하고 기록하는 지도입니다.</p><div class="about-grid"><article><b>01</b><h3>가까운 곳에서 발견해요</h3><p>동네와 가게 이름으로 국산 김치를 만날 수 있는 곳을 찾아보세요.</p></article><article><b>02</b><h3>직접 확인하고 기록해요</h3><p>가게 정보와 김치 원산지의 확인 방법, 확인일을 함께 기록합니다.</p></article><article><b>03</b><h3>함께 지도를 채워요</h3><p>여러분이 알고 있는 소중한 가게를 제보해 주세요.</p></article></div><button class="dark-button" data-view="explore">지도로 돌아가기 ↗</button></section></main>
   <main id="labView" hidden>
     <section class="lab-wrap">
-      <div class="lab-heading"><div class="eyebrow">KIMCHIRO LAB · 실험실</div><h1>김치 취향, <em>끝까지 골라봐!</em></h1><p>다양한 김치를 두 가지씩 비교하며 나만의 1등을 찾아보세요.</p></div>
+      <div class="lab-heading"><div class="eyebrow">KIMCHIRO LAB · 실험실</div><h1>김치로 <em>실험실.</em></h1><p>김치를 더 재미있게 만나는 게임과 서비스를 모았어요.</p></div>
+      <div class="lab-gallery"><a class="lab-card" href="/worldcup.html" target="_blank" rel="noopener"><span class="lab-card-icon" aria-hidden="true">🏆</span><span class="cup-badge">GAME · 32강</span><strong>김치 이상형 월드컵</strong><span>32가지 김치 중 나의 최애를 골라보세요.</span><b>새 창에서 시작하기 ↗</b></a><div class="lab-coming"><span aria-hidden="true">✦</span><strong>다음 실험도 기대해 주세요</strong><small>새로운 게임과 서비스를 준비하고 있어요.</small></div></div>
+    </section>
+  </main>
+  <main id="gameView" hidden>
+    <section class="lab-wrap">
+      <div class="lab-heading"><div class="eyebrow">KIMCHIRO LAB · 김치 이상형 월드컵</div><h1>김치 취향, <em>끝까지 골라봐!</em></h1><p>다양한 김치를 두 가지씩 비교하며 나만의 1등을 찾아보세요.</p><div class="game-links"><a href="/#lab">← 실험실로</a><button type="button" id="shareGame">게임 주소 복사 ↗</button></div><p id="shareGameStatus" class="share-status" aria-live="polite"></p></div>
       <div class="worldcup" id="worldcup" aria-live="polite"></div>
       <section class="cup-ranking" aria-labelledby="rankingTitle"><div class="ranking-head"><div><span class="eyebrow">KIMCHI RANKING</span><h2 id="rankingTitle">지금 인기 있는 김치 🏆</h2><p>월드컵에서 최종 우승한 횟수예요. 한 사람이 여러 번 참여할 수 있어요.</p></div><button type="button" id="refreshRankings" class="outline-button">새로고침 ↻</button></div><div id="cupRanking" aria-live="polite">순위를 불러오는 중이에요.</div></section>
     </section>
