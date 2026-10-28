@@ -3,6 +3,8 @@ const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const config = window.KIMCHIRO_CONFIG || {};
 const db = window.supabase && config.url && config.anonKey ? window.supabase.createClient(config.url, config.anonKey) : null;
 let isAdmin = false;
+const selectedReports = new Set();
+let reviewQueue = [], activeDetailId = null;
 let state = { stores: [], pending: [] }, candidates = [], category = '전체', map, markers;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,7 +33,36 @@ function render() {
 }
 $('#storeList').addEventListener('click', e => { const card = e.target.closest('[data-store]'); if (card) details(card.dataset.store); });
 $('#storeList').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const card = e.target.closest('[data-store]'); if (card) { e.preventDefault(); details(card.dataset.store); } } });
-function details(storeId) { const s = state.stores.find(x => x.id === storeId); if (!s) return; $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close>×</button></div><span class="pill">국산 김치 확인</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a>`; $('[data-detail-close]').onclick = () => $('#detailDialog').close(); open('#detailDialog'); }
+async function details(storeId) {
+  const s = state.stores.find(x => x.id === storeId); if (!s) return;
+  activeDetailId = storeId;
+  $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close aria-label="닫기">×</button></div><span class="pill">국산 김치 확인</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a><section class="reviews"><h3>방문 리뷰</h3><div id="reviewList" aria-live="polite">리뷰를 불러오는 중이에요.</div><form id="reviewForm"><label>이름 또는 별명 <b>*</b><input name="nickname" maxlength="40" required></label><label>별점 <b>*</b><select name="rating" required><option value="">선택해 주세요</option><option value="5">★★★★★ 5점</option><option value="4">★★★★☆ 4점</option><option value="3">★★★☆☆ 3점</option><option value="2">★★☆☆☆ 2점</option><option value="1">★☆☆☆☆ 1점</option></select></label><label>리뷰 <b>*</b><textarea name="body" maxlength="1000" required placeholder="방문 경험을 알려주세요."></textarea></label><p class="form-help">리뷰는 누구나 볼 수 있어요. 개인정보는 적지 말아 주세요.</p><button class="submit-button">리뷰 작성하기 <span>↗</span></button></form></section>`;
+  $('[data-detail-close]').onclick = () => $('#detailDialog').close(); open('#detailDialog');
+  $('#reviewForm').addEventListener('submit', async e => {
+    e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.');
+    const form = e.currentTarget, button = $('.submit-button', form), data = Object.fromEntries(new FormData(form));
+    const nickname = data.nickname.trim(), body = data.body.trim(), rating = Number(data.rating);
+    if (!nickname || !body || !Number.isInteger(rating) || rating < 1 || rating > 5) return toast('별명, 별점과 리뷰 내용을 확인해 주세요.');
+    button.disabled = true;
+    try { const {error} = await db.from('reviews').insert({store_id:storeId,nickname,body,rating}); if (error) throw error; form.reset(); toast('리뷰를 등록했어요.'); await loadReviews(storeId); }
+    catch (_) { toast('리뷰를 등록하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+    finally { button.disabled = false; }
+  });
+  await loadReviews(storeId);
+}
+async function loadReviews(storeId) {
+  if (!db) { $('#reviewList').textContent = '리뷰를 불러올 수 없어요.'; return; }
+  const {data, error} = await db.from('reviews').select('id,nickname,rating,body,created_at').eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);
+  if (activeDetailId !== storeId || !$('#detailDialog').open) return;
+  if (error) { $('#reviewList').textContent = '리뷰를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'; return; }
+  $('#reviewList').innerHTML = data.length ? data.map(r => `<article class="review-item"><div><b>${esc(r.nickname)}</b> <span class="review-stars" aria-label="${r.rating}점">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span> <small>${esc(new Date(r.created_at).toLocaleDateString('ko-KR'))}</small></div><p>${esc(r.body)}</p>${isAdmin ? `<button type="button" class="outline-button" data-delete-review="${esc(r.id)}">리뷰 삭제</button>` : ''}</article>`).join('') : '<p class="form-help">아직 리뷰가 없어요. 첫 리뷰를 남겨 주세요.</p>';
+}
+$('#detailDialog').addEventListener('close', () => { activeDetailId = null; });
+$('#detailContent').addEventListener('click', async e => {
+  const reviewId = e.target.dataset.deleteReview; if (!reviewId || !isAdmin || !confirm('이 리뷰를 삭제할까요?')) return;
+  const storeId = activeDetailId; const {error} = await db.from('reviews').delete().eq('id',reviewId);
+  if (error) return toast('리뷰를 삭제하지 못했어요.'); toast('리뷰를 삭제했어요.'); await loadReviews(storeId);
+});
 $('#reportForm').addEventListener('submit', async e => { e.preventDefault(); if (!e.target.elements.namedItem('address').value.trim()) { toast('주소 찾기에서 가게 주소를 선택해 주세요.'); $('.address-search', e.target).focus(); return; } if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); const button=e.target.querySelector('button[type=submit], .submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.from('reports').insert({data}); if(error) throw error; e.target.reset(); $('#reportDialog').close(); toast('제보를 보냈어요. 확인 후 지도에 반영됩니다.'); } catch(_) {toast('제보를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');} finally {button.disabled=false;} });
 function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value) form.elements.verifiedAt.value = today(); open('#editDialog'); }
 $('#manualAdd').addEventListener('click', () => edit());
@@ -66,14 +97,38 @@ for (const form of [$('#reportForm'), $('#editForm')]) {
   });
   form.closest('dialog').addEventListener('close', closePicker);
 }
+$('#editDialog').addEventListener('cancel', () => { reviewQueue = []; });
+$('#editDialog [data-close]').addEventListener('click', () => { reviewQueue = []; });
 $('#editForm [name=address]').addEventListener('input', () => {
   $('#editForm [name=lat]').value = '';
   $('#editForm [name=lng]').value = '';
 });
-$('#editForm').addEventListener('submit', async e => { e.preventDefault(); if (!db || !isAdmin) return toast('운영자 로그인이 필요해요.'); const d=Object.fromEntries(new FormData(e.target)); if ((d.lat || d.lng) && !validCoords(d)) return toast('대한민국 범위의 위도와 경도를 모두 확인해 주세요.'); const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const entry={...d,lat:d.lat.trim(),lng:d.lng.trim()}; delete entry.id; delete entry.pendingId; let error; if(d.pendingId) ({error}=await db.rpc('approve_report',{report_id:d.pendingId,store_data:entry})); else if(d.id) ({error}=await db.from('stores').update({data:entry}).eq('id',d.id)); else ({error}=await db.from('stores').insert({data:entry})); if(error) throw error; await loadData(); $('#editDialog').close(); if($('#manageDialog').open) $('#manageDialog').close(); toast('확인한 가게가 등록되었어요.'); } catch(_) {toast('등록하지 못했어요. 로그인과 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
+$('#editForm').addEventListener('submit', async e => { e.preventDefault(); if (!db || !isAdmin) return toast('운영자 로그인이 필요해요.'); const d=Object.fromEntries(new FormData(e.target)); if ((d.lat || d.lng) && !validCoords(d)) return toast('대한민국 범위의 위도와 경도를 모두 확인해 주세요.'); const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const entry={...d,lat:d.lat.trim(),lng:d.lng.trim()}; delete entry.id; delete entry.pendingId; let error; if(d.pendingId) ({error}=await db.rpc('approve_report',{report_id:d.pendingId,store_data:entry})); else if(d.id) ({error}=await db.from('stores').update({data:entry}).eq('id',d.id)); else ({error}=await db.from('stores').insert({data:entry})); if(error) throw error; await loadData(); selectedReports.delete(d.pendingId); $('#editDialog').close(); if (reviewQueue.length) { renderAdmin(); nextReview(); } else { renderAdmin(); toast('확인한 가게가 등록되었어요.'); } } catch(_) {toast('등록하지 못했어요. 로그인과 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
 $('#geocode').addEventListener('click', async e => { const address = $('#editForm [name=address]').value.trim(); if (!address) return toast('먼저 가게 주소를 입력해 주세요.'); e.target.disabled = true; e.target.textContent = '위치를 찾고 있어요…'; try { const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(address)}`); if (!response.ok) throw Error(); const [result] = await response.json(); if (address !== $('#editForm [name=address]').value.trim()) return; if (!result) { toast('위치를 찾지 못했어요. 좌표를 직접 입력해 주세요.'); return; } $('#editForm [name=lat]').value = result.lat; $('#editForm [name=lng]').value = result.lon; toast('좌표를 찾았어요. 실제 위치와 일치하는지 확인해 주세요.'); } catch (_) { toast('위치 검색을 사용할 수 없어요. 좌표를 직접 입력해 주세요.'); } finally { e.target.disabled = false; e.target.textContent = '주소로 위치 찾기 ◎'; } });
-function renderAdmin() { $('#pendingCount').textContent = state.pending.length || ''; $('#pendingList').innerHTML = state.pending.length ? [...state.pending].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)}<br>${esc(s.evidence)} · ${esc(s.verifiedAt)}<br>${esc(s.note)}</small></div><button data-review="${esc(s.id)}">검토·등록</button><button class="delete" data-reject="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 제보가 없어요.</div>'; $('#savedList').innerHTML = state.stores.length ? [...state.stores].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)} · ${esc(s.verifiedAt)} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>'; renderCandidates(); }
-$('#pendingList').addEventListener('click', async e => { const review=e.target.dataset.review, reject=e.target.dataset.reject; if(review) {const s=state.pending.find(x=>x.id===review); if(s) edit({...s,id:'',pendingId:s.id});} if(reject && confirm('이 제보를 삭제할까요?')) {const {error}=await db.from('reports').delete().eq('id',reject); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
+function renderAdmin() {
+  const ids = new Set(state.pending.map(s => s.id));
+  for (const selected of selectedReports) if (!ids.has(selected)) selectedReports.delete(selected);
+  $('#pendingCount').textContent = state.pending.length || '';
+  $('#pendingList').innerHTML = state.pending.length ? [...state.pending].reverse().map(s => `<div class="admin-item"><label class="report-check"><input type="checkbox" data-select-report="${esc(s.id)}" ${selectedReports.has(s.id) ? 'checked' : ''} aria-label="${esc(s.name)} 선택"></label><div><b>${esc(s.name)}</b><small>${esc(s.address)}<br>${esc(s.evidence)} · ${esc(s.verifiedAt)}<br>${esc(s.note)}</small></div><button data-review="${esc(s.id)}">검토·등록</button><button class="delete" data-reject="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 제보가 없어요.</div>';
+  $('#selectedReports').textContent = `${selectedReports.size}개 선택`;
+  $('#reviewSelected').disabled = $('#deleteSelected').disabled = !selectedReports.size;
+  $('#selectAllReports').disabled = !state.pending.length;
+  $('#clearReports').disabled = !selectedReports.size;
+  $('#savedList').innerHTML = state.stores.length ? [...state.stores].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)} · ${esc(s.verifiedAt)} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>';
+  renderCandidates();
+}
+$('#pendingList').addEventListener('change', e => { const checkbox=e.target.closest('[data-select-report]'); if (!checkbox) return; if (checkbox.checked) selectedReports.add(checkbox.dataset.selectReport); else selectedReports.delete(checkbox.dataset.selectReport); renderAdmin(); });
+$('#selectAllReports').addEventListener('click', () => { state.pending.forEach(s => selectedReports.add(s.id)); renderAdmin(); });
+$('#clearReports').addEventListener('click', () => { selectedReports.clear(); renderAdmin(); });
+function nextReview() { while (reviewQueue.length) { const reportId = reviewQueue.shift(), s = state.pending.find(x => x.id === reportId); if (s) { edit({...s,id:'',pendingId:s.id}); return; } } toast('선택한 제보 검토를 마쳤어요.'); }
+$('#reviewSelected').addEventListener('click', () => { reviewQueue = [...state.pending].reverse().filter(s => selectedReports.has(s.id)).map(s => s.id); if (reviewQueue.length) nextReview(); });
+$('#deleteSelected').addEventListener('click', async e => {
+  const ids = [...selectedReports]; if (!ids.length || !confirm(`선택한 제보 ${ids.length}개를 삭제할까요?`)) return;
+  e.currentTarget.disabled=true;
+  try { const {error}=await db.from('reports').delete().in('id',ids); if(error) throw error; selectedReports.clear(); await loadData(); toast('선택한 제보를 삭제했어요.'); }
+  catch (_) { toast('제보를 삭제하지 못했어요.'); } finally { renderAdmin(); }
+});
+$('#pendingList').addEventListener('click', async e => { const review=e.target.dataset.review, reject=e.target.dataset.reject; if(review) { reviewQueue=[]; const s=state.pending.find(x=>x.id===review); if(s) edit({...s,id:'',pendingId:s.id});} if(reject && confirm('이 제보를 삭제할까요?')) {const {error}=await db.from('reports').delete().eq('id',reject); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
 $('#savedList').addEventListener('click', async e => { const editId=e.target.dataset.edit, deleteId=e.target.dataset.delete; if(editId) {const s=state.stores.find(x=>x.id===editId); if(s) edit(s);} if(deleteId && confirm('이 가게를 삭제할까요?')) {const {error}=await db.from('stores').delete().eq('id',deleteId); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
 function parseCSV(text) { const rows=[]; let row=[], field='', quoted=false; for (let i=0;i<text.length;i++) { const c=text[i]; if (quoted) { if (c==='"' && text[i+1]==='"') { field+='"'; i++; } else if (c==='"') quoted=false; else field+=c; } else if(c==='"') quoted=true; else if(c===',') {row.push(field);field='';} else if(c==='\n'||c==='\r') {if(c==='\r'&&text[i+1]==='\n') i++;row.push(field);field='';if(row.some(v=>v.trim())) rows.push(row);row=[];} else field+=c; } if (field || row.length) {row.push(field);rows.push(row);} return rows; }
 $('#csvFile').addEventListener('change', async e => { const file=e.target.files[0]; if (!file) return; try { const buf=await file.arrayBuffer(); let text=new TextDecoder('utf-8').decode(buf); if ((text.match(/�/g)||[]).length > 2) text=new TextDecoder('euc-kr').decode(buf); const rows=parseCSV(text); if (!rows.length) throw Error('빈 파일이에요.'); const headers=rows.shift().map(s=>s.replace(/^\ufeff/,'').trim().replace(/\s/g,'')); const find=(...names)=>headers.findIndex(h=>names.includes(h)); const ni=find('사업장명','업소명','상호명','가게명'), ai=find('도로명전체주소','도로명주소','소재지도로명주소'), ji=find('소재지전체주소','소재지주소','지번주소'), si=find('상세영업상태명','영업상태명','영업상태'); if (ni<0 || (ai<0 && ji<0)) throw Error('사업장명과 주소 열을 찾지 못했어요. 일반음식점 인허가 CSV를 확인해 주세요.'); candidates=rows.filter(r=>r[ni] && (r[ai] || r[ji]) && (si<0 || !r[si] || /영업|정상/.test(r[si]))).map(r=>({name:r[ni].trim(),address:(r[ai]||r[ji]).trim(),category:'한식'})); $('#candidateSearch').value=''; renderCandidates(); toast(`${candidates.length.toLocaleString()}개 가게를 불러왔어요. 이름이나 주소로 검색하세요.`); } catch(err) { toast(err.message || 'CSV 파일을 읽지 못했어요.'); } e.target.value=''; });
@@ -82,8 +137,17 @@ $('#candidateSearch').addEventListener('input', renderCandidates);
 $('#candidateList').addEventListener('click', e => { if(e.target.dataset.candidate !== undefined) edit(candidates[Number(e.target.dataset.candidate)]); });
 $('#exportBtn').addEventListener('click', () => { const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`kimchiro-backup-${today()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); });
 
-if (window.L) { map=L.map('map',{zoomControl:false}).setView([36.5,127.9],7); L.control.zoom({position:'topright'}).addTo(map); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map); markers=L.layerGroup().addTo(map); } else $('#mapFallback').classList.add('show');
-$('#locate').addEventListener('click', () => { if (!map || !navigator.geolocation) return toast('현재 위치를 사용할 수 없어요.'); navigator.geolocation.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],14),()=>toast('위치 권한을 확인해 주세요.')); });
+if (window.L) { map=L.map('map',{zoomControl:false}).setView([37.5665,126.9780],11); L.control.zoom({position:'topright'}).addTo(map); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map); markers=L.layerGroup().addTo(map); } else $('#mapFallback').classList.add('show');
+let mapTouched = false;
+if (map) map.on('dragstart zoomstart', e => { if (e.originalEvent) mapTouched = true; });
+if (map) ['pointerdown', 'wheel', 'keydown'].forEach(event => map.getContainer().addEventListener(event, () => { mapTouched = true; }, {passive:true}));
+function locate(automatic = false) {
+  if (!map || !navigator.geolocation) { if (!automatic) toast('현재 위치를 사용할 수 없어요.'); return; }
+  if (!automatic) mapTouched = true;
+  navigator.geolocation.getCurrentPosition(p => { if (!automatic || !mapTouched) map.setView([p.coords.latitude,p.coords.longitude],14); }, () => { if (!automatic) toast('위치 권한을 확인해 주세요.'); }, {timeout:10000, maximumAge:300000});
+}
+$('#locate').addEventListener('click', () => locate());
+locate(true);
 render();
 async function loadData() {
   if (!db) { $('#connectionBanner').textContent='온라인 저장소가 아직 설정되지 않았어요.'; return; }
@@ -99,6 +163,6 @@ async function loadData() {
   } catch (_) { $('#connectionBanner').hidden=false; $('#connectionBanner').textContent='가게 정보를 불러오지 못했어요. 연결 상태를 확인해 주세요.'; }
 }
 $('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if(!db) return; const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.auth.signInWithPassword(data); if(error) { toast('이메일과 비밀번호를 확인해 주세요.'); return; } await loadData(); if(!isAdmin) { await db.auth.signOut(); toast('로그인했지만 운영자 권한이 연결되지 않았어요.'); return; } e.target.reset(); $('#loginDialog').close(); renderAdmin(); open('#manageDialog'); } catch(_) {toast('로그인하지 못했어요. 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
-$('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
+$('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; selectedReports.clear(); reviewQueue=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
 loadData();
 
