@@ -26,37 +26,52 @@ const worldcupKimchi = [
   ['대파김치','큼직한 대파의 풍미'], ['무청김치','무청의 구수한 맛'], ['순무김치','단단하고 알싸한 순무'], ['동치미무김치','시원하게 익힌 무'],
   ['돌나물물김치','상큼하고 산뜻한 국물'], ['미나리김치','미나리 향이 가득'], ['수박김치','달콤하고 아삭한 여름 별미'], ['콩나물김치','아삭한 콩나물의 색다른 맛']
 ];
+const isDishGame = location.pathname === '/kimchi-dish-worldcup.html';
+const isGamePage = isDishGame || location.pathname === '/worldcup.html';
+const gamePath = isDishGame ? '/kimchi-dish-worldcup.html' : '/worldcup.html';
+const gameLabel = isDishGame ? '김치요리' : '김치';
+const dishWorldcup = [
+ ['김치찌개','얼큰하고 깊은 기본의 맛'], ['참치김치찌개','참치가 더한 감칠맛'], ['돼지고기 김치찌개','돼지고기와 푹 끓인 찌개'], ['부대찌개','햄과 김치가 만난 얼큰함'],
+ ['김치볶음밥','고슬고슬 볶아낸 한 그릇'], ['치즈김치볶음밥','고소한 치즈가 듬뿍'], ['김치볶음밥 오므라이스','달걀 이불을 덮은 볶음밥'], ['김치전','바삭하고 매콤한 한 장'],
+ ['김치치즈전','김치전과 치즈의 조화'], ['김치만두','매콤한 속을 채운 만두'], ['김치만둣국','뜨끈한 국물과 김치만두'], ['김치수제비','쫄깃한 수제비와 얼큰한 국물'],
+ ['김치칼국수','칼칼한 국물과 부드러운 면'], ['김치말이국수','시원하게 말아 먹는 국수'], ['김치비빔국수','새콤매콤한 비빔국수'], ['김치우동','우동에 김치를 더한 따뜻함'],
+ ['김치라면','라면과 김치의 찰떡궁합'], ['김치라볶이','김치와 라면이 들어간 떡볶이'], ['김치떡볶이','쫄깃한 떡과 매콤한 김치'], ['김치찜','푹 익혀 진해진 김치'],
+ ['등갈비 김치찜','등갈비와 묵은지의 만남'], ['김치두루치기','자작하게 볶아 먹는 밥도둑'], ['두부김치','담백한 두부와 볶은 김치'], ['김치제육볶음','매콤한 제육과 김치'],
+ ['삼겹살 김치볶음','고소한 삼겹살과 볶은 김치'], ['김치찜닭','닭고기와 김치의 조화'], ['김치찜갈비','부드러운 갈비와 진한 김치'], ['김치볶음우동','탱글한 우동과 볶은 김치'],
+ ['김치볶음면','매콤한 볶음면 한 접시'], ['김치주먹밥','한입에 쏙 들어가는 김치밥'], ['김치김밥','김치가 들어간 든든한 김밥'], ['김치치즈토스트','바삭한 빵과 김치, 치즈']
+];
+if (isDishGame) { $('.lab-heading .eyebrow', $('#gameView')).textContent='KIMCHIRO LAB · 김치요리 이상형 월드컵'; $('.lab-heading h1', $('#gameView')).innerHTML='김치요리 취향, <em>끝까지 골라봐!</em>'; $('.lab-heading p', $('#gameView')).textContent='다양한 김치요리를 두 가지씩 비교하며 나만의 1등을 찾아보세요.'; $('#rankingTitle').textContent='지금 인기 있는 김치요리 🏆'; }
 let worldcupRound=[], worldcupWinners=[], worldcupIndex=0, worldcupGameId=null;
 const worldcupSaving=new Set();
 const cup=$('#worldcup');
 function cupGameId() { if (globalThis.crypto?.randomUUID) return crypto.randomUUID(); const a=new Uint8Array(16); if (globalThis.crypto?.getRandomValues) crypto.getRandomValues(a); else for(let i=0;i<16;i++) a[i]=Math.floor(Math.random()*256); a[6]=(a[6]&15)|64; a[8]=(a[8]&63)|128; const h=[...a].map(v=>v.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`; }
 async function loadCupRankings() {
   const target=$('#cupRanking'); if(!db) { target.textContent='순위를 불러올 수 없어요. 잠시 후 다시 시도해 주세요.'; return; }
-  try { const {data,error}=await db.rpc('worldcup_rankings'); if(error) throw error; const total=data.reduce((sum,row)=>sum+Number(row.wins),0); target.innerHTML=total ? `<p class="ranking-total">총 ${total.toLocaleString('ko-KR')}회 우승</p><ol class="ranking-list">${data.slice(0,10).map((row,i)=>`<li><span class="ranking-number">${i+1}</span><strong>${esc(row.winner)}</strong><span>${Number(row.wins).toLocaleString('ko-KR')}회</span></li>`).join('')}</ol>` : '<p class="ranking-empty">아직 우승 결과가 없어요. 첫 번째 주인공을 골라주세요!</p>'; }
+  try { const {data,error}=await db.rpc(isDishGame ? 'kimchi_dish_rankings' : 'worldcup_rankings'); if(error) throw error; const total=data.reduce((sum,row)=>sum+Number(row.wins),0); target.innerHTML=total ? `<p class="ranking-total">총 ${total.toLocaleString('ko-KR')}회 우승</p><ol class="ranking-list">${data.slice(0,10).map((row,i)=>`<li><span class="ranking-number">${i+1}</span><strong>${esc(row.winner)}</strong><span>${Number(row.wins).toLocaleString('ko-KR')}회</span></li>`).join('')}</ol>` : '<p class="ranking-empty">아직 우승 결과가 없어요. 첫 번째 주인공을 골라주세요!</p>'; }
   catch (_) { target.textContent='순위를 불러오지 못했어요. 새로고침을 눌러 주세요.'; }
 }
 async function saveCupResult(gameId,winner) {
   if(worldcupSaving.has(gameId)) return; const status=$('#cupSaveStatus'); if(status) status.textContent='우승 결과를 저장하고 있어요…';
   if(!db) { if(status) status.innerHTML='결과를 저장하지 못했어요. <button type="button" id="cupRetry">다시 시도</button>'; return; }
   worldcupSaving.add(gameId);
-  try { const {error}=await db.rpc('submit_worldcup_result',{p_game_id:gameId,p_winner:winner}); if(error) throw error; if(worldcupGameId===gameId && $('#cupSaveStatus')) $('#cupSaveStatus').textContent='우승 결과가 인기 순위에 반영됐어요!'; await loadCupRankings(); }
+  try { const {error}=await db.rpc(isDishGame ? 'submit_kimchi_dish_result' : 'submit_worldcup_result',{p_game_id:gameId,p_winner:winner}); if(error) throw error; if(worldcupGameId===gameId && $('#cupSaveStatus')) $('#cupSaveStatus').textContent='우승 결과가 인기 순위에 반영됐어요!'; await loadCupRankings(); }
   catch (_) { if(worldcupGameId===gameId && $('#cupSaveStatus')) $('#cupSaveStatus').innerHTML='결과를 저장하지 못했어요. <button type="button" id="cupRetry">다시 시도</button>'; }
   finally { worldcupSaving.delete(gameId); }
 }
 $('#refreshRankings').addEventListener('click',loadCupRankings);
 
-function cupIntro() { cup.innerHTML=`<div class="cup-intro"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">김치로 실험실 첫 번째 게임</span><h2>김치 이상형 월드컵</h2><p>32가지 김치 중<br>당신의 최애를 골라주세요!</p><button type="button" class="cup-primary" id="cupStart">32강 시작하기 <span aria-hidden="true">↗</span></button></div>`; }
-function cupStart() { worldcupGameId=cupGameId(); worldcupRound=[...worldcupKimchi]; for(let i=worldcupRound.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [worldcupRound[i],worldcupRound[j]]=[worldcupRound[j],worldcupRound[i]]; } worldcupWinners=[];worldcupIndex=0;cupRender(); }
+function cupIntro() { cup.innerHTML=`<div class="cup-intro"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">김치로 실험실</span><h2>${gameLabel} 이상형 월드컵</h2><p>32가지 ${gameLabel} 중<br>당신의 최애를 골라주세요!</p><button type="button" class="cup-primary" id="cupStart">32강 시작하기 <span aria-hidden="true">↗</span></button></div>`; }
+function cupStart() { worldcupGameId=cupGameId(); worldcupRound=[...(isDishGame ? dishWorldcup : worldcupKimchi)]; for(let i=worldcupRound.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [worldcupRound[i],worldcupRound[j]]=[worldcupRound[j],worldcupRound[i]]; } worldcupWinners=[];worldcupIndex=0;cupRender(); }
 function cupRender() {
-  if (worldcupRound.length===1) { const winner=worldcupRound[0]; cup.innerHTML=`<div class="cup-intro cup-result"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">당신의 최애 김치</span><h2>${esc(winner[0])}</h2><p>${esc(winner[1])}<br>32가지 후보 중 당신의 선택을 받았어요!</p><p class="cup-save-status" id="cupSaveStatus" role="status">우승 결과를 저장하고 있어요…</p><button type="button" class="cup-primary" id="cupRestart">다시 하기 ↻</button></div>`; saveCupResult(worldcupGameId,winner[0]); return; }
+  if (worldcupRound.length===1) { const winner=worldcupRound[0]; cup.innerHTML=`<div class="cup-intro cup-result"><div class="cup-icon" aria-hidden="true">🏆</div><span class="cup-badge">당신의 최애 ${gameLabel}</span><h2>${esc(winner[0])}</h2><p>${esc(winner[1])}<br>32가지 후보 중 당신의 선택을 받았어요!</p><p class="cup-save-status" id="cupSaveStatus" role="status">우승 결과를 저장하고 있어요…</p><button type="button" class="cup-primary" id="cupRestart">다시 하기 ↻</button></div>`; saveCupResult(worldcupGameId,winner[0]); return; }
   const count=worldcupRound.length, match=worldcupIndex/2+1, total=count/2, label=count===2?'결승':`${count}강`;
   const choices=worldcupRound.slice(worldcupIndex,worldcupIndex+2);
-  cup.innerHTML=`<div class="cup-status"><div><span class="cup-badge">${label}</span><strong>${match} / ${total}</strong></div><span>마음에 드는 쪽을 골라주세요</span></div><div class="cup-progress" role="progressbar" aria-label="현재 라운드 진행" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${match-1}"><span style="width:${(match-1)/total*100}%"></span></div><div class="cup-versus">${choices.map((item,i)=>`<button type="button" class="cup-choice" data-cup-choice="${i}" aria-label="${esc(item[0])} 선택"><span class="cup-choice-icon" aria-hidden="true">${i===0?'🥬':'🥢'}</span><strong>${esc(item[0])}</strong><small>${esc(item[1])}</small><span class="cup-select">이 김치 선택하기 ↗</span></button>`).join('<span class="cup-vs" aria-hidden="true">VS</span>')}</div><button type="button" class="cup-reset" id="cupRestart">처음부터 다시 하기</button>`;
+  cup.innerHTML=`<div class="cup-status"><div><span class="cup-badge">${label}</span><strong>${match} / ${total}</strong></div><span>마음에 드는 쪽을 골라주세요</span></div><div class="cup-progress" role="progressbar" aria-label="현재 라운드 진행" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${match-1}"><span style="width:${(match-1)/total*100}%"></span></div><div class="cup-versus">${choices.map((item,i)=>`<button type="button" class="cup-choice" data-cup-choice="${i}" aria-label="${esc(item[0])} 선택"><span class="cup-choice-icon" aria-hidden="true">${i===0?'🥬':'🥢'}</span><strong>${esc(item[0])}</strong><small>${esc(item[1])}</small><span class="cup-select">이 ${gameLabel} 선택하기 ↗</span></button>`).join('<span class="cup-vs" aria-hidden="true">VS</span>')}</div><button type="button" class="cup-reset" id="cupRestart">처음부터 다시 하기</button>`;
 }
 cup.addEventListener('click', e=>{ const choice=e.target.closest('[data-cup-choice]'); if(choice) { worldcupWinners.push(worldcupRound[worldcupIndex+Number(choice.dataset.cupChoice)]);worldcupIndex+=2;if(worldcupIndex===worldcupRound.length){worldcupRound=worldcupWinners;worldcupWinners=[];worldcupIndex=0;}cupRender();return; } if(e.target.closest('#cupRetry') && worldcupRound.length===1) { saveCupResult(worldcupGameId,worldcupRound[0][0]); return; } if(e.target.closest('#cupStart')) cupStart(); if(e.target.closest('#cupRestart')) { if(worldcupRound.length>1 && !confirm('진행 중인 월드컵을 처음부터 다시 시작할까요?')) return; cupStart(); } });
 cupIntro();
-$$('[data-view]').forEach(b => b.addEventListener('click', () => { const view=b.dataset.view; if(location.pathname === '/worldcup.html') { location.href=view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'; return; } history.pushState(null, '', view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'); showView(view); }));
-$$('a.brand').forEach(link => link.addEventListener('click', e => { e.preventDefault(); if(location.pathname === '/worldcup.html') { location.href='/'; return; } history.pushState(null, '', '/'); showView('explore'); }));
+$$('[data-view]').forEach(b => b.addEventListener('click', () => { const view=b.dataset.view; if(isGamePage) { location.href=view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'; return; } history.pushState(null, '', view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'); showView(view); }));
+$$('a.brand').forEach(link => link.addEventListener('click', e => { e.preventDefault(); if(isGamePage) { location.href='/'; return; } history.pushState(null, '', '/'); showView('explore'); }));
 $$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
 $$('.feedback-open').forEach(button => button.addEventListener('click', () => { $('#feedbackForm').reset(); open('#feedbackDialog'); }));
 $('#feedbackForm').addEventListener('submit', async e => {
@@ -68,10 +83,10 @@ $('#feedbackForm').addEventListener('submit', async e => {
   catch (_) { toast('의견을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'); } finally { button.disabled=false; }
 });
 function openAdmin() { if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); if (!isAdmin) return open('#loginDialog'); renderAdmin(); open('#manageDialog'); }
-function routeView() { if(location.hash === '#admin') return; if(location.pathname === '/worldcup.html') { showView('game'); loadCupRankings(); return; } showView(location.hash === '#lab' ? 'lab' : location.hash === '#about' ? 'about' : 'explore'); }
+function routeView() { if(location.hash === '#admin') return; if(isGamePage) { showView('game'); loadCupRankings(); return; } showView(location.hash === '#lab' ? 'lab' : location.hash === '#about' ? 'about' : 'explore'); }
 window.addEventListener('hashchange', () => { if(location.hash === '#admin') openAdmin(); else routeView(); });
 window.addEventListener('popstate', routeView);
-$('#shareGame').addEventListener('click', async () => { const url=new URL('/worldcup.html',location.origin).href; try { await navigator.clipboard.writeText(url); $('#shareGameStatus').textContent='게임 주소를 복사했어요!'; } catch (_) { $('#shareGameStatus').textContent=`주소를 복사해 공유해 주세요: ${url}`; } });
+$('#shareGame').addEventListener('click', async () => { const url=new URL(gamePath,location.origin).href; try { await navigator.clipboard.writeText(url); $('#shareGameStatus').textContent='게임 주소를 복사했어요!'; } catch (_) { $('#shareGameStatus').textContent=`주소를 복사해 공유해 주세요: ${url}`; } });
 routeView();
 $$('.tab').forEach(b => b.addEventListener('click', () => { $$('.tab').forEach(x => x.classList.toggle('active', x === b)); $$('.tab-panel').forEach(x => x.hidden = x.id !== `${b.dataset.tab}Panel`); renderAdmin(); }));
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); showView('explore'); $('#search').focus(); } });

@@ -21,3 +21,9 @@ const gameHtml = (await readFile('index.html', 'utf8'))
   .replaceAll('김치로 통하는 우리동네 김치 지도.', '32가지 김치 중 나의 최애 김치를 골라보세요!')
   .replaceAll('https://kimchiro.vercel.app/', 'https://kimchiro.vercel.app/worldcup.html');
 await writeFile('dist/worldcup.html', gameHtml);
+
+const dishGameHtml = (await readFile('index.html', 'utf8'))
+  .replaceAll('김치로-김치로 통하는 우리동네 김치 지도.', '김치요리 이상형 월드컵 | 김치로 실험실')
+  .replaceAll('김치로 통하는 우리동네 김치 지도.', '32가지 김치요리 중 나의 최애 요리를 골라보세요!')
+  .replaceAll('https://kimchiro.vercel.app/', 'https://kimchiro.vercel.app/kimchi-dish-worldcup.html');
+await writeFile('dist/kimchi-dish-worldcup.html', dishGameHtml);

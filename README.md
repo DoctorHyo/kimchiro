@@ -16,6 +16,8 @@ GitHub에 소스를 보관하고 Vercel에 배포하며 Supabase에 가게와 �
 
 - 김치 월드컵의 우승 결과와 인기 순위를 사용하려면 `supabase/worldcup-migration.sql`을 실행하세요. 순위는 사람 수가 아닌 완료된 게임의 우승 횟수입니다.
 
+- 김치요리 월드컵의 우승 순위를 사용하려면 `supabase/kimchi-dish-worldcup-migration.sql`도 실행하세요. 김치 종류 월드컵과 별도로 집계됩니다.
+
 ## 운영 주의
 
 - 사이트 의견 기능을 사용하려면 `supabase/feedback-migration.sql`을 실행하세요. 사용자는 익명으로 의견을 보내고, 운영자 메뉴의 사이트 의견 탭에서 검토할 수 있습니다. 의견은 공개되지 않으며 개인정보를 입력하지 않도록 안내합니다.
