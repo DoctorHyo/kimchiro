@@ -5,7 +5,7 @@ const db = window.supabase && config.url && config.anonKey ? window.supabase.cre
 let isAdmin = false;
 const selectedReports = new Set();
 let reviewQueue = [], activeDetailId = null;
-let state = { stores: [], pending: [] }, candidates = [], category = '전체', map, markers;
+let state = { stores: [], pending: [], feedback: [] }, candidates = [], category = '전체', map, markers;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -18,6 +18,15 @@ $$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d)
 function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === view)); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
 $$('[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 $$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
+$$('.feedback-open').forEach(button => button.addEventListener('click', () => { $('#feedbackForm').reset(); open('#feedbackDialog'); }));
+$('#feedbackForm').addEventListener('submit', async e => {
+  e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.');
+  const form=e.currentTarget, body=form.elements.body.value.trim(), button=form.querySelector('.submit-button');
+  if (!body) { form.elements.body.setCustomValidity('의견 내용을 입력해 주세요.'); form.elements.body.reportValidity(); form.elements.body.setCustomValidity(''); return; }
+  button.disabled=true;
+  try { const {error}=await db.from('site_feedback').insert({category:form.elements.category.value,body}); if (error) throw error; form.reset(); $('#feedbackDialog').close(); toast('의견을 보내주셔서 감사해요!'); }
+  catch (_) { toast('의견을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'); } finally { button.disabled=false; }
+});
 function openAdmin() { if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); if (!isAdmin) return open('#loginDialog'); renderAdmin(); open('#manageDialog'); }
 window.addEventListener('hashchange', () => { if (location.hash === '#admin') openAdmin(); });
 $$('.tab').forEach(b => b.addEventListener('click', () => { $$('.tab').forEach(x => x.classList.toggle('active', x === b)); $$('.tab-panel').forEach(x => x.hidden = x.id !== `${b.dataset.tab}Panel`); renderAdmin(); }));
@@ -116,6 +125,8 @@ function renderAdmin() {
   $('#reviewSelected').disabled = $('#deleteSelected').disabled = !selectedReports.size;
   $('#selectAllReports').disabled = !state.pending.length;
   $('#clearReports').disabled = !selectedReports.size;
+  $('#feedbackCount').textContent = state.feedback.filter(f => !f.reviewed).length || '';
+  $('#feedbackList').innerHTML = state.feedback.length ? [...state.feedback].reverse().map(f => `<div class="admin-item feedback-item"><div><b>${esc(f.category)} · ${f.reviewed ? '검토 완료' : '미검토'}</b><small>${esc(new Date(f.created_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}))}</small><p>${esc(f.body)}</p></div><button type="button" data-feedback-toggle="${esc(f.id)}">${f.reviewed ? '미검토로' : '검토 완료'}</button><button type="button" class="delete" data-feedback-delete="${esc(f.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 의견이 없어요.</div>';
   $('#savedList').innerHTML = state.stores.length ? [...state.stores].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)} · ${esc(s.verifiedAt)} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>';
   renderCandidates();
 }
@@ -131,6 +142,19 @@ $('#deleteSelected').addEventListener('click', async e => {
   catch (_) { toast('제보를 삭제하지 못했어요.'); } finally { renderAdmin(); }
 });
 $('#pendingList').addEventListener('click', async e => { const review=e.target.dataset.review, reject=e.target.dataset.reject; if(review) { reviewQueue=[]; const s=state.pending.find(x=>x.id===review); if(s) edit({...s,id:'',pendingId:s.id});} if(reject && confirm('이 제보를 삭제할까요?')) {const {error}=await db.from('reports').delete().eq('id',reject); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
+$('#feedbackList').addEventListener('click', async e => {
+  const toggle=e.target.dataset.feedbackToggle, remove=e.target.dataset.feedbackDelete;
+  if (!isAdmin || (!toggle && !remove)) return;
+  if (remove && !confirm('이 의견을 삭제할까요?')) return;
+  e.target.disabled=true;
+  try {
+    let result;
+    if (toggle) { const item=state.feedback.find(f => f.id===toggle); if (!item) return; result=await db.from('site_feedback').update({reviewed:!item.reviewed}).eq('id',toggle); }
+    else result=await db.from('site_feedback').delete().eq('id',remove);
+    if (result.error) throw result.error;
+    await loadData(); toast(remove ? '의견을 삭제했어요.' : '검토 상태를 변경했어요.');
+  } catch (_) { toast('처리하지 못했어요. 잠시 후 다시 시도해 주세요.'); } finally { e.target.disabled=false; }
+});
 $('#savedList').addEventListener('click', async e => { const editId=e.target.dataset.edit, deleteId=e.target.dataset.delete; if(editId) {const s=state.stores.find(x=>x.id===editId); if(s) edit(s);} if(deleteId && confirm('이 가게를 삭제할까요?')) {const {error}=await db.from('stores').delete().eq('id',deleteId); if(error) return toast('삭제하지 못했어요.'); await loadData();} });
 function parseCSV(text) { const rows=[]; let row=[], field='', quoted=false; for (let i=0;i<text.length;i++) { const c=text[i]; if (quoted) { if (c==='"' && text[i+1]==='"') { field+='"'; i++; } else if (c==='"') quoted=false; else field+=c; } else if(c==='"') quoted=true; else if(c===',') {row.push(field);field='';} else if(c==='\n'||c==='\r') {if(c==='\r'&&text[i+1]==='\n') i++;row.push(field);field='';if(row.some(v=>v.trim())) rows.push(row);row=[];} else field+=c; } if (field || row.length) {row.push(field);rows.push(row);} return rows; }
 $('#csvFile').addEventListener('change', async e => { const file=e.target.files[0]; if (!file) return; try { const buf=await file.arrayBuffer(); let text=new TextDecoder('utf-8').decode(buf); if ((text.match(/�/g)||[]).length > 2) text=new TextDecoder('euc-kr').decode(buf); const rows=parseCSV(text); if (!rows.length) throw Error('빈 파일이에요.'); const headers=rows.shift().map(s=>s.replace(/^\ufeff/,'').trim().replace(/\s/g,'')); const find=(...names)=>headers.findIndex(h=>names.includes(h)); const ni=find('사업장명','업소명','상호명','가게명'), ai=find('도로명전체주소','도로명주소','소재지도로명주소'), ji=find('소재지전체주소','소재지주소','지번주소'), si=find('상세영업상태명','영업상태명','영업상태'); if (ni<0 || (ai<0 && ji<0)) throw Error('사업장명과 주소 열을 찾지 못했어요. 일반음식점 인허가 CSV를 확인해 주세요.'); candidates=rows.filter(r=>r[ni] && (r[ai] || r[ji]) && (si<0 || !r[si] || /영업|정상/.test(r[si]))).map(r=>({name:r[ni].trim(),address:(r[ai]||r[ji]).trim(),category:'한식'})); $('#candidateSearch').value=''; renderCandidates(); toast(`${candidates.length.toLocaleString()}개 가게를 불러왔어요. 이름이나 주소로 검색하세요.`); } catch(err) { toast(err.message || 'CSV 파일을 읽지 못했어요.'); } e.target.value=''; });
@@ -156,15 +180,16 @@ async function loadData() {
   try {
     const adminResult = await db.rpc('is_admin');
     isAdmin = !adminResult.error && adminResult.data === true;
-    async function allRows(table) { const rows=[]; for(let offset=0;;offset+=1000) { const result=await db.from(table).select('id,data').order('created_at').order('id').range(offset,offset+999); if(result.error) throw result.error; rows.push(...result.data); if(result.data.length<1000) return rows; } }
+    async function allRows(table, columns='id,data') { const rows=[]; for(let offset=0;;offset+=1000) { const result=await db.from(table).select(columns).order('created_at').order('id').range(offset,offset+999); if(result.error) throw result.error; rows.push(...result.data); if(result.data.length<1000) return rows; } }
     state.stores = (await allRows('stores')).map(row => ({...row.data,id:row.id}));
     state.pending = [];
-    if (isAdmin) state.pending = (await allRows('reports')).map(row => ({...row.data,id:row.id}));
+    state.feedback = [];
+    if (isAdmin) { state.pending = (await allRows('reports')).map(row => ({...row.data,id:row.id})); state.feedback = await allRows('site_feedback', 'id,category,body,reviewed,created_at'); }
     $('#connectionBanner').hidden = true;
     render();
   } catch (_) { $('#connectionBanner').hidden=false; $('#connectionBanner').textContent='가게 정보를 불러오지 못했어요. 연결 상태를 확인해 주세요.'; }
 }
 $('#loginForm').addEventListener('submit', async e => { e.preventDefault(); if(!db) return; const button=e.target.querySelector('.submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.auth.signInWithPassword(data); if(error) { toast('이메일과 비밀번호를 확인해 주세요.'); return; } await loadData(); if(!isAdmin) { await db.auth.signOut(); toast('로그인했지만 운영자 권한이 연결되지 않았어요.'); return; } e.target.reset(); $('#loginDialog').close(); renderAdmin(); open('#manageDialog'); } catch(_) {toast('로그인하지 못했어요. 연결 상태를 확인해 주세요.');} finally {button.disabled=false;} });
-$('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; selectedReports.clear(); reviewQueue=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
+$('#logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); isAdmin=false; state.pending=[]; state.feedback=[]; selectedReports.clear(); reviewQueue=[]; $('#manageDialog').close(); render(); toast('로그아웃했어요.'); });
 loadData().then(() => { if (location.hash === '#admin') openAdmin(); });
 
