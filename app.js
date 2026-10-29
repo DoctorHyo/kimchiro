@@ -103,10 +103,33 @@ function render() {
 }
 $('#storeList').addEventListener('click', e => { const card = e.target.closest('[data-store]'); if (card) details(card.dataset.store); });
 $('#storeList').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const card = e.target.closest('[data-store]'); if (card) { e.preventDefault(); details(card.dataset.store); } } });
+function safePhotoUrl(value) { try { const url=new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch (_) { return ''; } }
+function reviewPhoto(value) { return typeof value === 'string' && value.length <= 100000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) ? value : ''; }
+async function prepareReviewPhoto(file) {
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('사진은 JPG, PNG, WEBP 형식으로 올려주세요.');
+  if (file.size > 8 * 1024 * 1024) throw new Error('사진은 8MB 이하로 올려주세요.');
+  const objectUrl=URL.createObjectURL(file), image=new Image();
+  try {
+    await new Promise((resolve,reject) => { image.onload=resolve; image.onerror=()=>reject(new Error('사진을 읽지 못했어요. 다른 사진을 선택해 주세요.')); image.src=objectUrl; });
+    const width=image.naturalWidth, height=image.naturalHeight; if(!width || !height) throw new Error('사진을 읽지 못했어요.');
+    let scale=Math.min(1, 960/Math.max(width,height)); const canvas=document.createElement('canvas'), ctx=canvas.getContext('2d');
+    if(!ctx) throw new Error('이 기기에서는 사진을 처리할 수 없어요.');
+    for(let attempt=0;attempt<7;attempt++) { canvas.width=Math.max(1,Math.round(width*scale)); canvas.height=Math.max(1,Math.round(height*scale)); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(image,0,0,canvas.width,canvas.height); for(const quality of [.82,.68,.54,.4]) { const result=canvas.toDataURL('image/jpeg',quality); if(reviewPhoto(result)) return result; } scale*=.75; }
+    throw new Error('사진을 줄이지 못했어요. 다른 사진을 선택해 주세요.');
+  } finally { URL.revokeObjectURL(objectUrl); }
+}
+function renderStorePhoto(store, reviews=[]) {
+  const target=$('#storePhoto'); if(!target) return;
+  const review=reviews.find(r=>reviewPhoto(r.photo_data)), photo=review ? reviewPhoto(review.photo_data) : safePhotoUrl(store.photoUrl);
+  const search='https://search.naver.com/search.naver?where=image&query='+encodeURIComponent(`${store.name} ${store.address} 음식`);
+  target.innerHTML=photo ? `<figure class="store-photo"><img src="${esc(photo)}" alt="${esc(store.name)} 음식 사진" loading="lazy" referrerpolicy="no-referrer"><figcaption>${review ? '이용자가 올린 리뷰 사진' : '가게 음식 사진'}</figcaption></figure>` : `<div class="store-photo-empty">📷 <span>아직 리뷰 사진이 없어요.<br><a href="${esc(search)}" target="_blank" rel="noopener noreferrer">네이버에서 사진 찾아보기 ↗</a></span></div>`;
+  const image=$('img',target); if(image) image.addEventListener('error',()=>{ target.innerHTML=`<div class="store-photo-empty">📷 <span>사진을 불러오지 못했어요.<br><a href="${esc(search)}" target="_blank" rel="noopener noreferrer">네이버에서 사진 찾아보기 ↗</a></span></div>`; },{once:true});
+}
 async function details(storeId) {
   const s = state.stores.find(x => x.id === storeId); if (!s) return;
   activeDetailId = storeId;
-  $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close aria-label="닫기">×</button></div><span class="pill">${esc(evidenceLabel(s))}</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a><section class="reviews"><h3>방문 리뷰</h3><div id="reviewList" aria-live="polite">리뷰를 불러오는 중이에요.</div><form id="reviewForm"><label>이름 또는 별명 <b>*</b><input name="nickname" maxlength="40" required></label><label>별점 <b>*</b><select name="rating" required><option value="">선택해 주세요</option><option value="5">★★★★★ 5점</option><option value="4">★★★★☆ 4점</option><option value="3">★★★☆☆ 3점</option><option value="2">★★☆☆☆ 2점</option><option value="1">★☆☆☆☆ 1점</option></select></label><label>리뷰 <b>*</b><textarea name="body" maxlength="1000" required placeholder="방문 경험을 알려주세요."></textarea></label><p class="form-help">리뷰는 누구나 볼 수 있어요. 개인정보는 적지 말아 주세요.</p><button class="submit-button">리뷰 작성하기 <span>↗</span></button></form></section>`;
+  $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close aria-label="닫기">×</button></div><div id="storePhoto"></div><span class="pill">${esc(evidenceLabel(s))}</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a><section class="reviews"><h3>방문 리뷰</h3><div id="reviewList" aria-live="polite">리뷰를 불러오는 중이에요.</div><form id="reviewForm"><label>이름 또는 별명 <b>*</b><input name="nickname" maxlength="40" required></label><label>별점 <b>*</b><select name="rating" required><option value="">선택해 주세요</option><option value="5">★★★★★ 5점</option><option value="4">★★★★☆ 4점</option><option value="3">★★★☆☆ 3점</option><option value="2">★★☆☆☆ 2점</option><option value="1">★☆☆☆☆ 1점</option></select></label><label>리뷰 <b>*</b><textarea name="body" maxlength="1000" required placeholder="방문 경험을 알려주세요."></textarea></label><label>음식 사진 <small>(선택)</small><input type="file" id="reviewPhotoInput" accept="image/jpeg,image/png,image/webp"></label><p class="form-help">직접 찍었거나 올릴 권한이 있는 사진만 등록해 주세요. 사진은 리뷰와 함께 공개돼요. JPG·PNG·WEBP, 8MB 이하.</p><p class="form-help">리뷰는 누구나 볼 수 있어요. 개인정보는 적지 말아 주세요.</p><button class="submit-button">리뷰 작성하기 <span>↗</span></button></form></section>`;
+  renderStorePhoto(s);
   $('[data-detail-close]').onclick = () => $('#detailDialog').close(); open('#detailDialog');
   $('#reviewForm').addEventListener('submit', async e => {
     e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.');
@@ -114,18 +137,19 @@ async function details(storeId) {
     const nickname = data.nickname.trim(), body = data.body.trim(), rating = Number(data.rating);
     if (!nickname || !body || !Number.isInteger(rating) || rating < 1 || rating > 5) return toast('별명, 별점과 리뷰 내용을 확인해 주세요.');
     button.disabled = true;
-    try { const {error} = await db.from('reviews').insert({store_id:storeId,nickname,body,rating}); if (error) throw error; form.reset(); toast('리뷰를 등록했어요.'); await loadReviews(storeId); }
-    catch (_) { toast('리뷰를 등록하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+    try { const file=$('#reviewPhotoInput',form).files[0]; const photo_data=file ? await prepareReviewPhoto(file) : null; const {error} = await db.from('reviews').insert({store_id:storeId,nickname,body,rating,photo_data}); if (error) throw error; form.reset(); toast('리뷰를 등록했어요.'); await loadReviews(storeId); }
+    catch (error) { toast(error instanceof Error && error.message ? error.message : '리뷰를 등록하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
     finally { button.disabled = false; }
   });
   await loadReviews(storeId);
 }
 async function loadReviews(storeId) {
   if (!db) { $('#reviewList').textContent = '리뷰를 불러올 수 없어요.'; return; }
-  const {data, error} = await db.from('reviews').select('id,nickname,rating,body,created_at').eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);
+  const {data, error} = await db.from('reviews').select('id,nickname,rating,body,created_at,photo_data').eq('store_id',storeId).order('created_at',{ascending:false}).limit(100);
   if (activeDetailId !== storeId || !$('#detailDialog').open) return;
   if (error) { $('#reviewList').textContent = '리뷰를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'; return; }
-  $('#reviewList').innerHTML = data.length ? data.map(r => `<article class="review-item"><div><b>${esc(r.nickname)}</b> <span class="review-stars" aria-label="${r.rating}점">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span> <small>${esc(new Date(r.created_at).toLocaleDateString('ko-KR'))}</small></div><p>${esc(r.body)}</p>${isAdmin ? `<button type="button" class="outline-button" data-delete-review="${esc(r.id)}">리뷰 삭제</button>` : ''}</article>`).join('') : '<p class="form-help">아직 리뷰가 없어요. 첫 리뷰를 남겨 주세요.</p>';
+  const store=state.stores.find(x=>x.id===storeId); if(store) renderStorePhoto(store,data);
+  $('#reviewList').innerHTML = data.length ? data.map(r => `<article class="review-item"><div><b>${esc(r.nickname)}</b> <span class="review-stars" aria-label="${r.rating}점">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span> <small>${esc(new Date(r.created_at).toLocaleDateString('ko-KR'))}</small></div><p>${esc(r.body)}</p>${reviewPhoto(r.photo_data) ? `<img class="review-photo" src="${esc(reviewPhoto(r.photo_data))}" alt="${esc(r.nickname)}님의 리뷰 사진" loading="lazy">` : ''}${isAdmin ? `<button type="button" class="outline-button" data-delete-review="${esc(r.id)}">리뷰 삭제</button>` : ''}</article>`).join('') : '<p class="form-help">아직 리뷰가 없어요. 첫 리뷰를 남겨 주세요.</p>';
 }
 $('#detailDialog').addEventListener('close', () => { activeDetailId = null; });
 $('#detailContent').addEventListener('click', async e => {
