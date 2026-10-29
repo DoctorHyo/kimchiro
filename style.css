@@ -25,3 +25,5 @@ body,.topbar{background:#fff}.topbar{border-color:#f1e9e8}.intro{background:#fff
 .store-photo{margin:0 0 18px;border-radius:10px;overflow:hidden;background:#fff4f1}.store-photo img{display:block;width:100%;height:220px;object-fit:cover}.store-photo figcaption{padding:8px 12px;color:#90756f;font-size:11px}.store-photo-empty{min-height:92px;margin:0 0 18px;border:1px dashed #eacbc5;background:#fff9f7;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;color:#a1837b;font-size:12px}.store-photo-empty span{line-height:1.5}@media(max-width:480px){.store-photo img{height:185px}}
 
 .store-photo-empty a{color:#b62e35;font-weight:700}.review-photo{display:block;max-width:100%;width:220px;max-height:240px;object-fit:cover;border-radius:8px;margin:10px 0}.reviews input[type=file]{padding:9px;font-size:11px}.reviews label small{color:#a08f8b;font-weight:400}
+
+.store-photo-external img{height:auto;max-height:420px;object-fit:contain}.store-photo figcaption a{color:#a72e36}.store-photo figcaption{line-height:1.6}
