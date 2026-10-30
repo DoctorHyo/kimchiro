@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>오늘은 내가 김장왕! | 김치로 실험실</title>
+  <meta name="description" content="배추를 절이고 양념을 버무려 나만의 김치를 완성해요!">
+  <meta property="og:type" content="website"><meta property="og:title" content="오늘은 내가 김장왕! | 김치로 실험실"><meta property="og:description" content="나만의 김치를 완성하고 김장왕에 도전해요!"><meta property="og:url" content="https://kimchiro.vercel.app/kimjang.html">
+  <link rel="canonical" href="https://kimchiro.vercel.app/kimjang.html"><link rel="stylesheet" href="kimjang.css">
+  <script src="kimjang.js" defer></script>
+</head>
+<body>
+  <header class="topbar"><a href="/" aria-label="김치로 홈"><img src="assets/kimchiro-logo.webp" alt="김치로" class="logo"></a><a class="back" href="/#lab">← 실험실로</a></header>
+  <main class="shell">
+    <div class="heading"><span class="eyebrow">KIMCHIRO LAB · MINI GAME</span><h1>오늘은 내가 <em>김장왕!</em></h1><p>한 포기부터 시작하는 나만의 김장 놀이 🥬</p></div>
+    <section class="game-card" aria-labelledby="game-title">
+      <div class="game-top"><span class="badge" id="stage-badge">KIMJANG TIME</span><span id="stage-count">준비 완료?</span></div>
+      <div class="steps" aria-label="김장 단계"><span data-step="0">01 절이기</span><i></i><span data-step="1">02 헹구기</span><i></i><span data-step="2">03 양념하기</span></div>
+      <div id="game" aria-live="polite"></div>
+    </section>
+    <p class="footnote">이 게임은 즐겁게 김장을 체험하는 놀이예요. 실제 김장 방법과는 다를 수 있어요.</p>
+  </main>
+  <footer>김치로 통하는 한국지도 <a href="/">우리 동네 김치 지도 보러 가기 ↗</a></footer>
+</body>
+</html>
+

@@ -10,8 +10,8 @@ if (!anonKey.startsWith('sb_publishable_')) {
 }
 await mkdir('dist', {recursive:true});
 await mkdir('dist/assets', {recursive:true});
-for (const file of ['index.html','style.css','app.js']) await copyFile(file, `dist/${file}`);
-for (const file of ['kimchiro-logo.webp','map-heading.webp','kimchi-icon.webp','hero-kimchi.webp']) await copyFile(`assets/${file}`, `dist/assets/${file}`);
+for (const file of ['index.html','style.css','app.js','kimjang.html','kimjang.css','kimjang.js']) await copyFile(file, `dist/${file}`);
+for (const file of ['kimchiro-logo.webp','map-heading.webp','kimchi-icon.webp','hero-kimchi.webp','kimjang-cabbage.webp','kimjang-seasoning.webp','kimjang-finished.webp']) await copyFile(`assets/${file}`, `dist/assets/${file}`);
 await writeFile('dist/config.js', `window.KIMCHIRO_CONFIG = ${JSON.stringify({url,anonKey})};\n`);
 
 
@@ -27,3 +27,4 @@ const dishGameHtml = (await readFile('index.html', 'utf8'))
   .replaceAll('김치로 통하는 우리동네 김치 지도.', '32가지 김치요리 중 나의 최애 요리를 골라보세요!')
   .replaceAll('https://kimchiro.vercel.app/', 'https://kimchiro.vercel.app/kimchi-dish-worldcup.html');
 await writeFile('dist/kimchi-dish-worldcup.html', dishGameHtml);
+
