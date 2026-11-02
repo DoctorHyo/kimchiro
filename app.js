@@ -14,7 +14,7 @@ const id = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const open = selector => { const dialog = $(selector); if (!dialog.open) dialog.showModal(); };
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
-$$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+$$('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d && d.querySelector('[aria-busy="true"]') === null) d.close(); }));
 function showView(view) { $('#exploreView').hidden = view !== 'explore'; $('#aboutView').hidden = view !== 'about'; $('#labView').hidden = view !== 'lab'; $('#gameView').hidden = view !== 'game'; $$('.nav-link').forEach(b => b.classList.toggle('active', b.dataset.view === (view === 'game' ? 'lab' : view))); window.scrollTo(0,0); if (map && view === 'explore') setTimeout(() => map.invalidateSize(), 50); }
 const worldcupKimchi = [
   ['배추김치','밥상 위의 든든한 기본'], ['백김치','깔끔하고 시원한 맛'], ['깍두기','아삭하게 씹는 무김치'], ['총각김치','아삭한 알타리의 매력'],
@@ -72,7 +72,7 @@ cup.addEventListener('click', e=>{ const choice=e.target.closest('[data-cup-choi
 cupIntro();
 $$('[data-view]').forEach(b => b.addEventListener('click', () => { const view=b.dataset.view; if(isGamePage) { location.href=view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'; return; } history.pushState(null, '', view==='lab' ? '/#lab' : view==='about' ? '/#about' : '/'); showView(view); }));
 $$('a.brand').forEach(link => link.addEventListener('click', e => { e.preventDefault(); if(isGamePage) { location.href='/'; return; } history.pushState(null, '', '/'); showView('explore'); }));
-$$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { $('#reportForm').reset(); $('#reportForm [name=verifiedAt]').value = today(); open('#reportDialog'); }));
+$$('#reportBtn,#introReport,#footerReport,#mapReport,#closingReport').forEach(b => b.addEventListener('click', () => { resetReport(); open('#reportDialog'); }));
 $$('.feedback-open').forEach(button => button.addEventListener('click', () => { $('#feedbackForm').reset(); open('#feedbackDialog'); }));
 $('#feedbackForm').addEventListener('submit', async e => {
   e.preventDefault(); if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.');
@@ -159,11 +159,54 @@ $('#detailContent').addEventListener('click', async e => {
   const storeId = activeDetailId; const {error} = await db.from('reviews').delete().eq('id',reviewId);
   if (error) return toast('리뷰를 삭제하지 못했어요.'); toast('리뷰를 삭제했어요.'); await loadReviews(storeId);
 });
-$('#reportForm').addEventListener('submit', async e => { e.preventDefault(); if (!e.target.elements.namedItem('address').value.trim()) { toast('주소 찾기에서 가게 주소를 선택해 주세요.'); $('.address-search', e.target).focus(); return; } if (!db) return toast('온라인 저장소가 아직 설정되지 않았어요.'); const button=e.target.querySelector('button[type=submit], .submit-button'); button.disabled=true; try { const data=Object.fromEntries(new FormData(e.target)); const {error}=await db.from('reports').insert({data}); if(error) throw error; e.target.reset(); $('#reportDialog').close(); toast('제보를 보냈어요. 확인 후 지도에 반영됩니다.'); } catch(_) {toast('제보를 보내지 못했어요. 잠시 후 다시 시도해 주세요.');} finally {button.disabled=false;} });
-function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value) form.elements.verifiedAt.value = today(); open('#editDialog'); }
+let reportPhotoData = '', reportPhotoVersion = 0, reportBusy = false;
+function reportStatus(message) { $('#reportStatus').textContent=message; }
+function resetReport() {
+  $('#reportForm').reset(); reportPhotoData=''; reportPhotoVersion++;
+  $('#reportPreview').hidden=true; $('#reportPreview').removeAttribute('src'); $('#removeReportPhoto').hidden=true;
+  $('#reportFields').hidden=false; $('#reportSuccess').hidden=true; reportStatus('');
+}
+function lockReport(busy) {
+  reportBusy=busy; $('#reportForm').setAttribute('aria-busy',String(busy));
+  $$('#reportForm input, #reportForm button').forEach(el=>el.disabled=busy);
+}
+$('#reportDialog').addEventListener('cancel', e=>{ if(reportBusy) e.preventDefault(); });
+$('#takeReportPhoto').addEventListener('click',()=>$('#reportCamera').click());
+$('#chooseReportPhoto').addEventListener('click',()=>$('#reportPhoto').click());
+$('#removeReportPhoto').addEventListener('click',()=>{ reportPhotoData=''; reportPhotoVersion++; $('#reportPreview').hidden=true; $('#reportPreview').removeAttribute('src'); $('#removeReportPhoto').hidden=true; reportStatus('사진을 다시 선택해 주세요.'); });
+for(const input of [$('#reportCamera'),$('#reportPhoto')]) input.addEventListener('change',async()=>{
+  const file=input.files[0]; input.value=''; if(!file) return;
+  const version=++reportPhotoVersion; reportPhotoData=''; $('#reportPreview').hidden=true; $('#removeReportPhoto').hidden=true;
+  lockReport(true); reportStatus('사진을 압축하고 있어요…');
+  try { const photo=await window.prepareReportPhoto(file); if(version!==reportPhotoVersion) return; reportPhotoData=photo; $('#reportPreview').src=photo; $('#reportPreview').hidden=false; $('#removeReportPhoto').hidden=false; reportStatus('사진을 확인하고 제보를 완료해 주세요.'); }
+  catch(error) { if(version===reportPhotoVersion) reportStatus(error.message); }
+  finally { lockReport(false); }
+});
+$('#reportForm').addEventListener('submit', async e=>{
+  e.preventDefault(); if(reportBusy) return;
+  const form=e.currentTarget, name=form.elements.name.value.trim(), neighborhood=form.elements.neighborhood.value.trim();
+  if(!name || !neighborhood) { reportStatus('식당 이름과 동네를 입력해 주세요.'); (!name?form.elements.name:form.elements.neighborhood).focus(); return; }
+  if(!reportPhotoData) { reportStatus('원산지 표시판 사진을 찍거나 올려주세요.'); $('#takeReportPhoto').focus(); return; }
+  if(!db) { reportStatus('온라인 저장소에 연결되지 않았어요. 잠시 후 다시 시도해 주세요.'); return; }
+  lockReport(true); reportStatus('제보를 보내고 있어요…');
+  try {
+    const data={version:2,name,address:neighborhood,neighborhood,photo:reportPhotoData,status:'pending',submittedAt:new Date().toISOString()};
+    const {error}=await db.from('reports').insert({data}); if(error) throw error;
+    resetReport(); $('#reportFields').hidden=true; $('#reportSuccess').hidden=false; $('#reportSuccess').focus();
+  } catch(_) { reportStatus('제보를 보내지 못했어요. 입력과 사진은 유지돼요. 연결을 확인하고 다시 시도해 주세요.'); }
+  finally { lockReport(false); }
+});
+function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value && data.version!==2) form.elements.verifiedAt.value = today();
+  const evidence=$('#reportEvidence'); evidence.replaceChildren(); evidence.hidden=true;
+  if(data.version===2) {
+    form.elements.evidence.value=''; form.elements.note.value='';
+    evidence.hidden=false; const text=document.createElement('p'); text.textContent='검수 대기 · 아래 사진의 배추·고춧가루 원산지를 확인하고 실제 확인일, 상세주소를 입력해 주세요. 제보일은 원산지 확인일이 아니에요.'; evidence.append(text);
+    if(window.validReportPhoto(data.photo)) { const image=document.createElement('img'); image.src=data.photo; image.alt='제보된 김치 원산지 표시판'; evidence.append(image); }
+  }
+  open('#editDialog'); }
 $('#manualAdd').addEventListener('click', () => edit());
 // Kakao's address finder works inside the form, including in mobile webviews.
-for (const form of [$('#reportForm'), $('#editForm')]) {
+for (const form of [$('#editForm')]) {
   const input = form.elements.namedItem('address');
   const picker = $('.address-picker', form);
   const frame = $('.postcode-frame', picker);
@@ -205,7 +248,7 @@ function renderAdmin() {
   const ids = new Set(state.pending.map(s => s.id));
   for (const selected of selectedReports) if (!ids.has(selected)) selectedReports.delete(selected);
   $('#pendingCount').textContent = state.pending.length || '';
-  $('#pendingList').innerHTML = state.pending.length ? [...state.pending].reverse().map(s => `<div class="admin-item"><label class="report-check"><input type="checkbox" data-select-report="${esc(s.id)}" ${selectedReports.has(s.id) ? 'checked' : ''} aria-label="${esc(s.name)} 선택"></label><div><b>${esc(s.name)}</b><small>${esc(s.address)}<br>${esc(s.evidence)} · ${esc(s.verifiedAt)}<br>${esc(s.note)}</small></div><button data-review="${esc(s.id)}">검토·등록</button><button class="delete" data-reject="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 제보가 없어요.</div>';
+  $('#pendingList').innerHTML = state.pending.length ? [...state.pending].reverse().map(s => `<div class="admin-item"><label class="report-check"><input type="checkbox" data-select-report="${esc(s.id)}" ${selectedReports.has(s.id) ? 'checked' : ''} aria-label="${esc(s.name)} 선택"></label><div><b>${esc(s.name)}</b><small>${esc(s.address)}<br>${s.version===2 ? '검수 대기 · '+esc(new Date(s.submittedAt).toLocaleDateString('ko-KR'))+' 접수' : esc(s.evidence)+' · '+esc(s.verifiedAt)+'<br>'+esc(s.note)}</small></div><button data-review="${esc(s.id)}">검토·등록</button><button class="delete" data-reject="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 제보가 없어요.</div>';
   $('#selectedReports').textContent = `${selectedReports.size}개 선택`;
   $('#reviewSelected').disabled = $('#deleteSelected').disabled = !selectedReports.size;
   $('#selectAllReports').disabled = !state.pending.length;
