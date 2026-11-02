@@ -45,3 +45,5 @@ body,.topbar{background:#fff}.topbar{border-color:#f1e9e8}.intro{background:#fff
 #reportDialog :focus-visible {outline:3px solid #255b43;outline-offset:3px;}
 #reportDialog [hidden] {display:none!important;}
 @media(max-width:600px){#reportDialog {padding:22px 18px;}#reportDialog h2{font-size:28px;}.report-photo {padding:12px;}}
+
+.seller-entry{margin:12px 6.2% 30px;padding:18px 22px;background:#eaf2e6;border-radius:14px}.seller-entry a{color:#244c37;font-weight:800;font-size:18px;text-decoration:none}.seller-entry a span{margin-left:8px}.seller-entry p{margin:4px 0 0;color:#5d705f;font-size:14px}
