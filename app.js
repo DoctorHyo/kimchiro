@@ -94,7 +94,8 @@ $('#filters').addEventListener('click', e => { const b = e.target.closest('[data
 $('#search').addEventListener('input', render);
 function filtered() { const q = $('#search').value.trim().toLowerCase(); return [...state.stores].reverse().filter(s => (category === '전체' || s.category === category) && `${s.name} ${s.address}`.toLowerCase().includes(q)); }
 function validCoords(s) { return s.lat !== '' && s.lng !== '' && s.lat != null && s.lng != null && Number.isFinite(Number(s.lat)) && Number.isFinite(Number(s.lng)) && Number(s.lat) >= 33 && Number(s.lat) <= 39.5 && Number(s.lng) >= 124 && Number(s.lng) <= 132; }
-function evidenceLabel(s) { return s.evidence === '기타' ? '원산지 재확인 필요' : s.evidence === '공식 메뉴·안내 확인' ? '공식 안내 기준' : '국산 김치 확인'; }
+function needsRecheck(s) { const v=String(s.verifiedAt||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return true; const d=new Date(v+'T00:00:00+09:00'); if(!Number.isFinite(d.getTime()) || d.getTime()>Date.now()) return true; return Date.now()-d.getTime()>365*24*60*60*1000; }
+function evidenceLabel(s) { return needsRecheck(s) || s.evidence === '기타' ? '원산지 재확인 필요' : '원산지 확인 기록'; }
 function render() {
   const items = filtered(); $('#count').textContent = items.length;
   $('#storeList').innerHTML = items.length ? items.map(s => `<article class="store-card" tabindex="0" role="button" data-store="${esc(s.id)}"><div class="store-card-top"><h3>${esc(s.name)}</h3><span class="pill">${esc(evidenceLabel(s))}</span></div><p>${esc(s.address)}</p><div class="store-meta"><span><img class="kimchi-icon" src="assets/kimchi-icon.webp" alt="" aria-hidden="true"> ${esc(s.evidence)}</span><span>${esc(s.category)}</span><span>${esc(s.verifiedAt)} 확인</span></div></article>`).join('') : `<div class="empty-list"><div class="empty-icon">⌖</div><b>${state.stores.length ? '검색 결과가 없어요' : '첫 번째 김치 가게를 기다려요'}</b>${state.stores.length ? '다른 검색어나 필터를 선택해 보세요.' : '확인한 가게를 등록하면<br>이곳에 차곡차곡 모여요.'}</div>`;
@@ -130,7 +131,8 @@ function renderStorePhoto(store, reviews=[]) {
 async function details(storeId) {
   const s = state.stores.find(x => x.id === storeId); if (!s) return;
   activeDetailId = storeId;
-  $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close aria-label="닫기">×</button></div><div id="storePhoto"></div><span class="pill">${esc(evidenceLabel(s))}</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있으니 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a><section class="reviews"><h3>방문 리뷰</h3><div id="reviewList" aria-live="polite">리뷰를 불러오는 중이에요.</div><form id="reviewForm"><label>이름 또는 별명 <b>*</b><input name="nickname" maxlength="40" required></label><label>별점 <b>*</b><select name="rating" required><option value="">선택해 주세요</option><option value="5">★★★★★ 5점</option><option value="4">★★★★☆ 4점</option><option value="3">★★★☆☆ 3점</option><option value="2">★★☆☆☆ 2점</option><option value="1">★☆☆☆☆ 1점</option></select></label><label>리뷰 <b>*</b><textarea name="body" maxlength="1000" required placeholder="방문 경험을 알려주세요."></textarea></label><label>음식 사진 <small>(선택)</small><input type="file" id="reviewPhotoInput" accept="image/jpeg,image/png,image/webp"></label><p class="form-help">직접 찍었거나 올릴 권한이 있는 사진만 등록해 주세요. 사진은 리뷰와 함께 공개돼요. JPG·PNG·WEBP, 8MB 이하.</p><p class="form-help">리뷰는 누구나 볼 수 있어요. 개인정보는 적지 말아 주세요.</p><button class="submit-button">리뷰 작성하기 <span>↗</span></button></form></section>`;
+  $('#detailContent').innerHTML = `<div class="modal-head"><div><span class="eyebrow">KIMCHI SPOT</span><h2 class="detail-title">${esc(s.name)}</h2><p class="detail-address">${esc(s.address)}</p></div><button class="close" data-detail-close aria-label="닫기">×</button></div><div id="storePhoto"></div><span class="pill">${esc(evidenceLabel(s))}</span><div class="detail-box"><div><b>업종</b>${esc(s.category)}</div><div><b>확인 방법</b>${esc(s.evidence)}</div><div><b>확인일</b>${esc(s.verifiedAt)}</div></div><p class="detail-note">${esc(s.note)}</p><p class="form-help">원산지는 변경될 수 있어요. 확인일로부터 1년이 지나면 재확인 필요로 표시합니다. 방문 전 가게에 확인해 주세요.</p><a class="source-link" target="_blank" rel="noopener" href="https://map.kakao.com/link/search/${encodeURIComponent(s.name + ' ' + s.address)}">카카오맵에서 찾아보기 ↗</a><button type="button" class="outline-button" id="correctionOpen">정보가 달라요</button><section class="reviews"><h3>방문 리뷰</h3><div id="reviewList" aria-live="polite">리뷰를 불러오는 중이에요.</div><form id="reviewForm"><label>이름 또는 별명 <b>*</b><input name="nickname" maxlength="40" required></label><label>별점 <b>*</b><select name="rating" required><option value="">선택해 주세요</option><option value="5">★★★★★ 5점</option><option value="4">★★★★☆ 4점</option><option value="3">★★★☆☆ 3점</option><option value="2">★★☆☆☆ 2점</option><option value="1">★☆☆☆☆ 1점</option></select></label><label>리뷰 <b>*</b><textarea name="body" maxlength="1000" required placeholder="방문 경험을 알려주세요."></textarea></label><label>음식 사진 <small>(선택)</small><input type="file" id="reviewPhotoInput" accept="image/jpeg,image/png,image/webp"></label><p class="form-help">직접 찍었거나 올릴 권한이 있는 사진만 등록해 주세요. 사진은 리뷰와 함께 공개돼요. JPG·PNG·WEBP, 8MB 이하.</p><p class="form-help">리뷰는 누구나 볼 수 있어요. 개인정보는 적지 말아 주세요.</p><button class="submit-button">리뷰 작성하기 <span>↗</span></button></form></section>`;
+  $('#correctionOpen').addEventListener('click',()=>openRequest('correction',s));
   renderStorePhoto(s);
   $('[data-detail-close]').onclick = () => $('#detailDialog').close(); open('#detailDialog');
   $('#reviewForm').addEventListener('submit', async e => {
@@ -162,7 +164,7 @@ $('#detailContent').addEventListener('click', async e => {
 let reportPhotoData = '', reportPhotoVersion = 0, reportBusy = false;
 function reportStatus(message) { $('#reportStatus').textContent=message; }
 function resetReport() {
-  $('#reportForm').reset(); reportPhotoData=''; reportPhotoVersion++;
+  $('#reportForm').reset(); $('#storeSuggestions').replaceChildren(); reportPhotoData=''; reportPhotoVersion++;
   $('#reportPreview').hidden=true; $('#reportPreview').removeAttribute('src'); $('#removeReportPhoto').hidden=true;
   $('#reportFields').hidden=false; $('#reportSuccess').hidden=true; reportStatus('');
 }
@@ -171,6 +173,7 @@ function lockReport(busy) {
   $$('#reportForm input, #reportForm button').forEach(el=>el.disabled=busy);
 }
 $('#reportDialog').addEventListener('cancel', e=>{ if(reportBusy) e.preventDefault(); });
+$('#reportForm [name=name]').addEventListener('input', e=>{ const q=e.target.value.trim().toLowerCase(), box=$('#storeSuggestions'); box.replaceChildren(); if(q.length<2) return; for(const s of state.stores.filter(x=>String(x.name).toLowerCase().includes(q)).slice(0,5)){ const button=document.createElement('button'); button.type='button'; button.className='store-suggestion'; button.textContent=`${s.name} · ${s.address}`; button.addEventListener('click',()=>{ e.target.value=s.name; $('#reportForm [name=neighborhood]').value=s.address; box.replaceChildren(); reportStatus('이미 등록된 가게예요. 사진을 추가로 보내거나 가게 상세에서 정보를 수정 제보할 수 있어요.'); }); box.append(button); } });
 $('#takeReportPhoto').addEventListener('click',()=>$('#reportCamera').click());
 $('#chooseReportPhoto').addEventListener('click',()=>$('#reportPhoto').click());
 $('#removeReportPhoto').addEventListener('click',()=>{ reportPhotoData=''; reportPhotoVersion++; $('#reportPreview').hidden=true; $('#reportPreview').removeAttribute('src'); $('#removeReportPhoto').hidden=true; reportStatus('사진을 다시 선택해 주세요.'); });
@@ -196,6 +199,20 @@ $('#reportForm').addEventListener('submit', async e=>{
   } catch(_) { reportStatus('제보를 보내지 못했어요. 입력과 사진은 유지돼요. 연결을 확인하고 다시 시도해 주세요.'); }
   finally { lockReport(false); }
 });
+let requestMode='correction', requestStore=null;
+function openRequest(mode, store=null){
+  requestMode=mode;requestStore=store;const f=$('#requestForm');f.reset();$('#requestStatus').textContent='';
+  const owner=mode==='owner';$('#requestTitle').textContent=owner?'사장님 등록 신청':'가게 정보 수정 제보';$('#requestIntro').textContent=owner?'가게와 김치 원산지를 확인할 자료를 알려주세요.':'변경된 내용을 알려주시면 확인할게요.';
+  $('#requestStoreLabel').hidden=owner;$('#requestStoreLabel').textContent=store?`${store.name} · ${store.address}`:'';
+  $('#requestNameLabel').hidden=!owner;$('#requestAddressLabel').hidden=!owner;$('#requestContactLabel').hidden=!owner;$('#requestTypeLabel').hidden=owner;
+  f.elements.name.required=owner;f.elements.address.required=owner;f.elements.contact.required=owner;
+  $('#requestPrivacy').textContent=owner?'연락처와 신청 내용은 운영자만 확인하고, 등록 검토와 연락에 사용합니다. 공개 목록에 자동으로 표시되지 않아요.':'제보는 운영자만 확인해요. 개인정보는 입력하지 마세요.';
+  open('#requestDialog');
+}
+$('#ownerOpen').addEventListener('click',()=>openRequest('owner'));
+$('#requestForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,button=f.querySelector('.submit-button'),info=f.elements.body.value.trim();if(!info){$('#requestStatus').textContent='내용을 입력해 주세요.';return}if(!db){$('#requestStatus').textContent='연결할 수 없어요. 다시 시도해 주세요.';return}
+const body=requestMode==='owner'?`[사장님 등록 신청]\n가게: ${f.elements.name.value.trim()}\n주소: ${f.elements.address.value.trim()}\n연락처: ${f.elements.contact.value.trim()}\n자료: ${info}`:`[가게 정보 수정 제보]\n가게: ${requestStore.name}\n주소: ${requestStore.address}\n가게 ID: ${requestStore.id}\n유형: ${f.elements.kind.value}\n내용: ${info}`;
+if(body.length>2000){$('#requestStatus').textContent='내용을 조금 줄여 주세요.';return}button.disabled=true;$('#requestStatus').textContent='보내는 중이에요…';try{const {error}=await db.from('site_feedback').insert({category:'기타',body});if(error)throw error;$('#requestDialog').close();toast('보냈어요. 운영자가 확인할게요.');}catch(_){$('#requestStatus').textContent='보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.'}finally{button.disabled=false}});
 function edit(data = {}) { const form = $('#editForm'); form.reset(); for (const [key,value] of Object.entries(data)) { const field = form.elements.namedItem(key); if (field) field.value = value ?? ''; } if (!form.elements.verifiedAt.value && data.version!==2) form.elements.verifiedAt.value = today();
   const evidence=$('#reportEvidence'); evidence.replaceChildren(); evidence.hidden=true;
   if(data.version===2) {
@@ -255,7 +272,7 @@ function renderAdmin() {
   $('#clearReports').disabled = !selectedReports.size;
   $('#feedbackCount').textContent = state.feedback.filter(f => !f.reviewed).length || '';
   $('#feedbackList').innerHTML = state.feedback.length ? [...state.feedback].reverse().map(f => `<div class="admin-item feedback-item"><div><b>${esc(f.category)} · ${f.reviewed ? '검토 완료' : '미검토'}</b><small>${esc(new Date(f.created_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}))}</small><p>${esc(f.body)}</p></div><button type="button" data-feedback-toggle="${esc(f.id)}">${f.reviewed ? '미검토로' : '검토 완료'}</button><button type="button" class="delete" data-feedback-delete="${esc(f.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 접수된 의견이 없어요.</div>';
-  $('#savedList').innerHTML = state.stores.length ? [...state.stores].reverse().map(s => `<div class="admin-item"><div><b>${esc(s.name)}</b><small>${esc(s.address)} · ${esc(s.verifiedAt)} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>';
+  $('#savedList').innerHTML = state.stores.length ? [...state.stores].sort((a,b)=>Number(needsRecheck(b))-Number(needsRecheck(a))).map(s => `<div class="admin-item"><div><b>${esc(s.name)}${needsRecheck(s) ? ' · 재확인 필요' : ''}</b><small>${esc(s.address)} · ${esc(s.verifiedAt || '확인일 없음')} 확인</small></div><button data-edit="${esc(s.id)}">수정</button><button class="delete" data-delete="${esc(s.id)}">삭제</button></div>`).join('') : '<div class="empty-admin">아직 등록된 가게가 없어요.</div>';
   renderCandidates();
 }
 $('#pendingList').addEventListener('change', e => { const checkbox=e.target.closest('[data-select-report]'); if (!checkbox) return; if (checkbox.checked) selectedReports.add(checkbox.dataset.selectReport); else selectedReports.delete(checkbox.dataset.selectReport); renderAdmin(); });

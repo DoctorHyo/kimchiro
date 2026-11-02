@@ -51,3 +51,5 @@ body,.topbar{background:#fff}.topbar{border-color:#f1e9e8}.intro{background:#fff
 /* Keep navigation links aligned with button labels. */
 .topbar nav .nav-link{display:flex;align-items:center;text-decoration:none;white-space:nowrap}
 
+
+.owner-entry{margin:40px 6.2% 0;padding:20px 24px;background:#f4f5ef;border-radius:8px;display:flex;gap:16px;align-items:center;justify-content:space-between}.owner-entry p{margin:4px 0 0;color:#778273;font-size:12px}.owner-entry button,.store-suggestion{font:inherit;cursor:pointer;border:1px solid #dfe5da;background:white;border-radius:5px;padding:11px;color:#536b4f;font-weight:700}.store-suggestions{display:grid;gap:4px}.store-suggestion{text-align:left;font-size:12px;min-height:44px}.store-suggestion:hover{background:#edf3e8}@media(max-width:600px){.owner-entry{margin:30px 4% 0;align-items:flex-start;flex-direction:column}}
